@@ -1,4 +1,6 @@
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Button } from "../components/ui/button"
 import {
   Table,
   TableBody,
@@ -7,27 +9,34 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table"
+import { Badge } from "../components/ui/badge"
+import { useUsers } from '../hooks/useUsers'
+import { format } from 'date-fns'
+import { AddMemberModal } from "../components/member/AddMemberModal"
+import { Plus } from "lucide-react"
+import { getFullName } from '../lib/utils'
 import { Input } from "../components/ui/input"
-import { Button } from "../components/ui/button"
-import { members, Member } from '../data/members'
-import { Link } from 'react-router-dom'
-import AddMemberModal from '../components/modals/AddMemberModal'
-import { PlusCircle } from 'lucide-react'
 
 const Members = () => {
-  const [searchTerm, setSearchTerm] = useState('')
+  const navigate = useNavigate()
+  const { data: users, isLoading } = useUsers()
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
 
-  const filteredMembers = members.filter(member =>
-    member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    member.email.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredUsers = users?.filter(user =>
+    user.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.user_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.email.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  const handleAddMember = (data: any) => {
-    console.log('New member data:', data);
-    // Here you would typically add the member to your data store
-    setIsAddModalOpen(false);
-  };
+  const handleRowClick = (userId: string) => {
+    navigate(`/members/${userId}`)
+  }
+
+  if (isLoading) {
+    return <div className="p-6">Loading members...</div>
+  }
 
   return (
     <div className="p-6">
@@ -38,13 +47,13 @@ const Members = () => {
             placeholder="Search members..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="max-w-sm"
+            className="w-[300px]"
           />
-          <Button 
+          <Button
             onClick={() => setIsAddModalOpen(true)}
-            className="bg-[#1a1a2e] hover:bg-[#2d2d44] text-white px-8 py-2.5 h-12 min-w-[160px] whitespace-nowrap"
+            className="bg-[#1a1a2e] hover:bg-[#2d2d44] text-white"
           >
-            <PlusCircle className="mr-3 h-5 w-5" />
+            <Plus className="h-4 w-4 mr-2" />
             Add Member
           </Button>
         </div>
@@ -55,43 +64,50 @@ const Members = () => {
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
+              <TableHead>Member Number</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Join Date</TableHead>
-              <TableHead>License Type</TableHead>
               <TableHead>Last Flight</TableHead>
-              <TableHead>Actions</TableHead>
+              <TableHead className="w-[100px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredMembers.map((member) => (
-              <TableRow key={member.id}>
-                <TableCell>
-                  <Link 
-                    to={`/members/${member.id}`}
-                    className="text-blue-600 hover:underline"
-                  >
-                    {member.name}
-                  </Link>
+            {filteredUsers?.map((user) => (
+              <TableRow 
+                key={user.id}
+                className="cursor-pointer hover:bg-gray-50"
+                onClick={() => handleRowClick(user.id)}
+              >
+                <TableCell className="font-medium">
+                  {getFullName(user.first_name, user.last_name)}
                 </TableCell>
-                <TableCell>{member.email}</TableCell>
+                <TableCell>{user.user_number}</TableCell>
+                <TableCell>{user.email}</TableCell>
                 <TableCell>
-                  <span className={`px-2 py-1 rounded-full text-xs ${
-                    member.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                  }`}>
-                    {member.status}
-                  </span>
-                </TableCell>
-                <TableCell>{member.joinDate}</TableCell>
-                <TableCell>{member.licenseType}</TableCell>
-                <TableCell>{member.lastFlight}</TableCell>
-                <TableCell>
-                  <Link 
-                    to={`/members/${member.id}/edit`}
-                    className="text-sm text-gray-600 hover:text-blue-600"
+                  <Badge
+                    className={
+                      user.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    }
                   >
-                    Edit
-                  </Link>
+                    {user.status}
+                  </Badge>
+                </TableCell>
+                <TableCell>{format(new Date(user.join_date), 'dd MMM yyyy')}</TableCell>
+                <TableCell>
+                  {user.last_flight ? format(new Date(user.last_flight), 'dd MMM yyyy') : '-'}
+                </TableCell>
+                <TableCell>
+                  <Button 
+                    variant="ghost" 
+                    className="hover:text-blue-600"
+                    onClick={(e) => {
+                      e.stopPropagation() // Prevent row click when clicking the button
+                      navigate(`/members/${user.id}`)
+                    }}
+                  >
+                    View
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}
@@ -100,9 +116,8 @@ const Members = () => {
       </div>
 
       <AddMemberModal
-        isOpen={isAddModalOpen}
+        open={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        onSubmit={handleAddMember}
       />
     </div>
   )

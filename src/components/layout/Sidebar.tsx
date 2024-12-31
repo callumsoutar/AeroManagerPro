@@ -9,6 +9,7 @@ import {
   FaFileInvoice,
   FaCog
 } from 'react-icons/fa';
+import { Calendar } from 'lucide-react';
 
 interface MenuItem {
   title: string;
@@ -25,6 +26,7 @@ const Sidebar: React.FC = () => {
     { title: 'Scheduler', icon: <FaCalendarAlt />, path: '/scheduler' },
     { title: 'Staff', icon: <FaUsers />, path: '/staff' },
     { title: 'Members', icon: <FaUserFriends />, path: '/members' },
+    { title: 'Bookings', icon: <Calendar size={18} />, path: '/bookings' },
     { title: 'Invoices', icon: <FaFileInvoice />, path: '/invoices' },
     { title: 'Settings', icon: <FaCog />, path: '/settings' },
   ];

@@ -8,6 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Label } from "../ui/label"
 import { Search } from 'lucide-react'
 import { cn } from "../../lib/utils"
+import { ALL_LESSONS } from '../../data/lessons'
+import { aircraftRates, ChargeRateType } from '../../data/chargeRates'
+import { aircraftData } from '../../data/aircraft'
 
 interface NewBookingModalProps {
   isOpen: boolean
@@ -27,11 +30,19 @@ const trialFlightOptions = [
 ]
 
 const NewBookingModal = ({ isOpen, onClose }: NewBookingModalProps) => {
-  const [activeTab, setActiveTab] = useState('member')
   const [voucher, setVoucher] = useState<VoucherState>({
     code: '',
     isChecking: false
   })
+  const [selectedAircraft, setSelectedAircraft] = useState<string>('')
+  const [selectedRate, setSelectedRate] = useState<ChargeRateType | ''>('')
+
+  const currentAircraftRates = selectedAircraft
+    ? aircraftRates.find(ar => {
+        const aircraftReg = selectedAircraft.split(' - ')[1]?.replace('ZK-', '')
+        return ar.aircraftId === aircraftReg
+      })?.rates
+    : []
 
   const handleVoucherValidation = async () => {
     setVoucher(prev => ({ ...prev, isChecking: true }))
@@ -48,7 +59,7 @@ const NewBookingModal = ({ isOpen, onClose }: NewBookingModalProps) => {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[800px] p-0">
-        <Tabs defaultValue="member" className="w-full" onValueChange={setActiveTab}>
+        <Tabs defaultValue="member" className="w-full">
           <div className="border-b px-6 py-4">
             <TabsList className="w-full grid grid-cols-2">
               <TabsTrigger 
@@ -82,27 +93,51 @@ const NewBookingModal = ({ isOpen, onClose }: NewBookingModalProps) => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Flight Type</Label>
-                    <Select>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select flight type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="training">Training</SelectItem>
-                        <SelectItem value="hire">Private Hire</SelectItem>
-                        <SelectItem value="check">Check Flight</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
                     <Label>Aircraft</Label>
-                    <Select>
+                    <Select
+                      value={selectedAircraft}
+                      onValueChange={(value) => {
+                        setSelectedAircraft(value)
+                        setSelectedRate('') // Reset rate when aircraft changes
+                      }}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Select aircraft" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="c172">C172 - ZK-ABC</SelectItem>
-                        <SelectItem value="pa28">PA28 - ZK-XYZ</SelectItem>
+                        {aircraftData.map(aircraft => (
+                          <SelectItem 
+                            key={aircraft.id} 
+                            value={`${aircraft.type} - ZK-${aircraft.registration}`}
+                          >
+                            {aircraft.type} - ZK-{aircraft.registration}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Flight Type</Label>
+                    <Select
+                      value={selectedRate}
+                      onValueChange={(value: string) => {
+                        setSelectedRate(value as ChargeRateType)
+                      }}
+                      disabled={!selectedAircraft}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={
+                          selectedAircraft 
+                            ? "Select flight type" 
+                            : "Select aircraft first"
+                        } />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {currentAircraftRates?.map((rate) => (
+                          <SelectItem key={rate.type} value={rate.type}>
+                            {rate.type} - ${rate.rate}/hr
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -110,14 +145,17 @@ const NewBookingModal = ({ isOpen, onClose }: NewBookingModalProps) => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Instructor</Label>
+                    <Label>Lesson (Optional)</Label>
                     <Select>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select instructor" />
+                        <SelectValue placeholder="Select lesson" />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="mike">Mike Wilson</SelectItem>
-                        <SelectItem value="sarah">Sarah Brown</SelectItem>
+                      <SelectContent className="max-h-[200px]">
+                        {ALL_LESSONS.map((lesson) => (
+                          <SelectItem key={lesson} value={lesson}>
+                            {lesson}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -133,6 +171,19 @@ const NewBookingModal = ({ isOpen, onClose }: NewBookingModalProps) => {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Instructor</Label>
+                  <Select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select instructor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="mike">Mike Wilson</SelectItem>
+                      <SelectItem value="sarah">Sarah Brown</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">

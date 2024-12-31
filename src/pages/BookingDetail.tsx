@@ -1,32 +1,56 @@
 import React, { useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { bookings } from '../data/bookings'
 import { Button } from "../components/ui/button"
 import { Badge } from "../components/ui/badge"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs"
 import { format } from 'date-fns'
-import { Clock, User, Plane, FileEdit, CheckCircle2, AlertCircle } from 'lucide-react'
+import { FileEdit, CheckCircle2, FileText } from 'lucide-react'
+import { cn } from "../lib/utils"
+import { useBooking } from '../hooks/useBooking'
+import { getFullName } from '../lib/utils'
+import { EditBookingModal } from "../components/modals/EditBookingModal"
+import { useQuery } from '@tanstack/react-query'
+import { supabase } from '../lib/supabase'
+import { Table, TableHeader, TableBody, TableCell, TableHead, TableRow } from "../components/ui/table"
 
 const BookingDetail = () => {
-  const { id } = useParams()
+  const { id } = useParams<{ id: string }>()
+  const { data: booking, isLoading } = useBooking(id!)
   const navigate = useNavigate()
   const [isEditing, setIsEditing] = useState(false)
-  const booking = bookings.find(b => b.id === id)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
-  if (!booking) {
-    return (
-      <div className="p-6 flex flex-col items-center justify-center min-h-[400px]">
-        <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">Booking Not Found</h2>
-        <p className="text-gray-500 mb-4">The booking you're looking for doesn't exist.</p>
-        <Link to="/" className="text-blue-600 hover:text-blue-800">
-          ← Return to Dashboard
-        </Link>
-      </div>
-    )
+  const { data: invoices } = useQuery({
+    queryKey: ['invoices', booking?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('*')
+        .eq('booking_id', booking?.id)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      
+      return data?.map(invoice => ({
+        ...invoice,
+        total_amount: Number(invoice.total_amount) || 0,
+        flight_charge_total: Number(invoice.flight_charge_total) || 0,
+        additional_charges_total: Number(invoice.additional_charges_total) || 0
+      }))
+    },
+    enabled: !!booking?.id
+  })
+
+  if (isLoading) {
+    return <div className="p-6">Loading booking details...</div>
   }
 
-  const formatDateTime = (dateString: string) => {
+  if (!booking) {
+    return <div className="p-6">Booking not found</div>
+  }
+
+  const formatDateTime = (dateString: string | null) => {
+    if (!dateString) return '-'
     return format(new Date(dateString), 'EEE, MMM d, yyyy h:mm a')
   }
 
@@ -43,27 +67,55 @@ const BookingDetail = () => {
     }
   }
 
+  const formatCurrency = (amount: number | null | undefined) => {
+    if (amount === null || amount === undefined) return '-'
+    return new Intl.NumberFormat('en-NZ', {
+      style: 'currency',
+      currency: 'NZD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount)
+  }
+
+  const handleEditClick = () => {
+    setIsEditModalOpen(true)
+  }
+
   return (
     <div className="p-6 max-w-6xl mx-auto">
       {/* Header Section */}
       <div className="flex justify-between items-start mb-8">
         <div>
           <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-3xl font-bold text-gray-900">{booking.aircraft}</h1>
+            <h1 className="text-3xl font-bold text-gray-900">
+              {booking.aircraft?.registration}
+            </h1>
             <Badge className={getStatusColor(booking.status)}>
               {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
             </Badge>
             <Button 
               variant="outline" 
               size="sm"
-              className="flex items-center gap-2 ml-4"
-              onClick={() => setIsEditing(!isEditing)}
+              className="flex items-center gap-2"
+              onClick={handleEditClick}
             >
               <FileEdit className="h-4 w-4" />
-              {isEditing ? 'Cancel Edit' : 'Edit Booking'}
+              Edit Booking
             </Button>
           </div>
-          <p className="text-gray-500">Booking #{booking.id}</p>
+          <div className="text-gray-500">
+            <button
+              type="button"
+              onClick={() => navigate(`/members/${booking.user_id}`)}
+              className={cn(
+                "p-0 h-auto font-normal text-blue-600 hover:text-blue-800",
+                "hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2",
+                "rounded"
+              )}
+            >
+              {booking.user ? getFullName(booking.user.first_name, booking.user.last_name) : 'Unknown Member'}
+            </button>
+          </div>
         </div>
         <Link to="/" className="text-gray-600 hover:text-gray-900">
           ← Back to Dashboard
@@ -73,77 +125,119 @@ const BookingDetail = () => {
       {/* Main Content */}
       <div className="bg-white rounded-xl shadow-sm border">
         {/* Top Section with Key Details */}
-        <div className="p-6 border-b">
+        <div className="p-6 border-b bg-gray-50/50">
           <div className="grid grid-cols-2 gap-8">
-            {/* Left Column */}
+            {/* Left Column - Flight Details Only */}
             <div className="space-y-6">
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Plane className="h-5 w-5 text-gray-600" />
+              {/* Flight Details Section */}
+              <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-1 h-6 bg-blue-500 rounded-full"></div>
                   <h3 className="font-semibold text-gray-900">Flight Details</h3>
                 </div>
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Type</label>
-                    <Badge className="mt-1" variant="secondary">
-                      {booking.type.charAt(0).toUpperCase() + booking.type.slice(1)}
-                    </Badge>
-                  </div>
-                  {booking.description && (
+                <div className="space-y-4">
+                  {/* Aircraft Info */}
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="text-sm font-medium text-gray-500">Description</label>
-                      <p className="mt-1 text-gray-900">{booking.description}</p>
+                      <label className="text-sm font-medium text-gray-500">Aircraft</label>
+                      <p className="mt-1 text-gray-900">{booking.aircraft?.registration}</p>
                     </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <User className="h-5 w-5 text-gray-600" />
-                  <h3 className="font-semibold text-gray-900">People</h3>
-                </div>
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Member</label>
-                    <p className="mt-1 text-gray-900">{booking.member}</p>
-                  </div>
-                  {booking.instructor && (
                     <div>
-                      <label className="text-sm font-medium text-gray-500">Instructor</label>
-                      <p className="mt-1 text-gray-900">{booking.instructor}</p>
+                      <label className="text-sm font-medium text-gray-500">Type</label>
+                      <p className="mt-1 text-gray-900">{booking.aircraft?.type}</p>
+                    </div>
+                  </div>
+
+                  {/* Flight Type and Lesson */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Flight Type</label>
+                      <p className="mt-1 text-gray-900">{booking.flight_type?.name || '-'}</p>
+                    </div>
+                    {booking.lesson && (
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Lesson</label>
+                        <p className="mt-1 text-gray-900">{booking.lesson.name}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Description and Route */}
+                  <div className="grid grid-cols-2 gap-4">
+                    {booking.description && (
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Description</label>
+                        <p className="mt-1 text-gray-900">{booking.description}</p>
+                      </div>
+                    )}
+                    {booking.route && (
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Route</label>
+                        <p className="mt-1 text-gray-900">{booking.route}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Flight Status - Separate container */}
+                  {(booking.checked_out_time || booking.eta) && (
+                    <div className="mt-4 pt-4 border-t border-dashed">
+                      <div className="grid grid-cols-2 gap-4 bg-blue-50/50 p-3 rounded-lg">
+                        {booking.checked_out_time && (
+                          <div>
+                            <label className="text-sm font-medium text-blue-700">Checked Out</label>
+                            <p className="mt-1 text-blue-900">{formatDateTime(booking.checked_out_time)}</p>
+                          </div>
+                        )}
+                        {booking.eta && (
+                          <div>
+                            <label className="text-sm font-medium text-blue-700">ETA</label>
+                            <p className="mt-1 text-blue-900">{formatDateTime(booking.eta)}</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Right Column */}
+            {/* Right Column - Flight Times and People */}
             <div className="space-y-6">
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Clock className="h-5 w-5 text-gray-600" />
-                  <h3 className="font-semibold text-gray-900">Timing</h3>
+              {/* Flight Times Section */}
+              <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-1 h-6 bg-green-500 rounded-full"></div>
+                  <h3 className="font-semibold text-gray-900">Flight Times</h3>
                 </div>
-                <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-4 bg-green-50/50 p-3 rounded-lg">
                   <div>
                     <label className="text-sm font-medium text-gray-500">Start Time</label>
-                    <p className="mt-1 text-gray-900">{formatDateTime(booking.startTime)}</p>
+                    <p className="mt-1 text-gray-900">{formatDateTime(booking.start_time)}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">End Time</label>
-                    <p className="mt-1 text-gray-900">{formatDateTime(booking.endTime)}</p>
+                    <p className="mt-1 text-gray-900">{formatDateTime(booking.end_time)}</p>
                   </div>
-                  {booking.checkedOutTime && (
+                </div>
+              </div>
+
+              {/* People Section */}
+              <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-1 h-6 bg-purple-500 rounded-full"></div>
+                  <h3 className="font-semibold text-gray-900">People</h3>
+                </div>
+                <div className="space-y-3 bg-purple-50/50 p-3 rounded-lg">
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Member</label>
+                    <p className="mt-1 text-gray-900">
+                      {booking.user ? getFullName(booking.user.first_name, booking.user.last_name) : '-'}
+                    </p>
+                  </div>
+                  {booking.instructor && (
                     <div>
-                      <label className="text-sm font-medium text-gray-500">Checked Out</label>
-                      <p className="mt-1 text-gray-900">{booking.checkedOutTime}</p>
-                    </div>
-                  )}
-                  {booking.eta && (
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">ETA</label>
-                      <p className="mt-1 text-gray-900">{booking.eta}</p>
+                      <label className="text-sm font-medium text-gray-500">Instructor</label>
+                      <p className="mt-1 text-gray-900">{booking.instructor.name}</p>
                     </div>
                   )}
                 </div>
@@ -152,23 +246,178 @@ const BookingDetail = () => {
           </div>
         </div>
 
-        {/* Tabs Section */}
-        <div className="p-6">
+        {/* Tabs Section - with improved styling */}
+        <div className="p-6 bg-white">
           <Tabs defaultValue="details" className="w-full">
-            <TabsList className="w-full justify-start">
+            <TabsList className="w-full justify-start border-b">
               <TabsTrigger value="details">Flight Details</TabsTrigger>
               <TabsTrigger value="charges">Charges</TabsTrigger>
-              <TabsTrigger value="techlog">Tech Log</TabsTrigger>
+              <TabsTrigger value="instructor-comments">Instructor Comments</TabsTrigger>
               <TabsTrigger value="history">History</TabsTrigger>
             </TabsList>
             <TabsContent value="details" className="p-4">
-              <div className="text-gray-500">Flight details will be displayed here</div>
+              <div className="space-y-6">
+                <div className="bg-white rounded-lg shadow p-6">
+                  <h3 className="text-lg font-semibold mb-4">Flight Details</h3>
+                  <div className="grid grid-cols-2 gap-6">
+                    {/* Flight Time */}
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <label className="text-sm font-medium text-gray-500 block mb-1">
+                        Flight Duration
+                      </label>
+                      <p className="text-2xl font-semibold text-green-600">
+                        {booking?.flight_time ? (
+                          `${booking.flight_time.toFixed(1)} hrs`
+                        ) : (
+                          <span className="text-gray-500 text-base font-normal italic">
+                            Not yet completed
+                          </span>
+                        )}
+                      </p>
+                    </div>
+
+                    {/* Route */}
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <label className="text-sm font-medium text-gray-500 block mb-1">
+                        Route
+                      </label>
+                      <p className="text-gray-900">
+                        {booking?.route || (
+                          <span className="text-gray-500 italic">
+                            No route specified
+                          </span>
+                        )}
+                      </p>
+                    </div>
+
+                    {/* Description - Full Width */}
+                    <div className="col-span-2 bg-gray-50 rounded-lg p-4">
+                      <label className="text-sm font-medium text-gray-500 block mb-1">
+                        Flight Description
+                      </label>
+                      <p className="text-gray-900 whitespace-pre-wrap">
+                        {booking?.description || (
+                          <span className="text-gray-500 italic">
+                            No description provided
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </TabsContent>
-            <TabsContent value="charges" className="p-4">
-              <div className="text-gray-500">Charges information will be displayed here</div>
+            <TabsContent value="charges">
+              <div className="space-y-6">
+                <div className="bg-white rounded-lg shadow p-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold">Invoice Details</h3>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {/* Add create invoice logic */}}
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      Create Invoice
+                    </Button>
+                  </div>
+
+                  {isLoading ? (
+                    <div className="text-center py-4">Loading invoice details...</div>
+                  ) : invoices && invoices.length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Invoice #</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Amount</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Due Date</TableHead>
+                          <TableHead>Paid Date</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {invoices.map((invoice) => (
+                          <TableRow key={invoice.id}>
+                            <TableCell className="font-medium">
+                              {invoice.invoice_number}
+                            </TableCell>
+                            <TableCell>
+                              {format(new Date(invoice.created_at), 'dd MMM yyyy')}
+                            </TableCell>
+                            <TableCell>
+                              {formatCurrency(invoice.total_amount)}
+                            </TableCell>
+                            <TableCell>
+                              <Badge className={getStatusColor(invoice.status)}>
+                                {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {invoice.due_date ? format(new Date(invoice.due_date), 'dd MMM yyyy') : '-'}
+                            </TableCell>
+                            <TableCell>
+                              {invoice.paid_date 
+                                ? format(new Date(invoice.paid_date), 'dd MMM yyyy')
+                                : '-'
+                              }
+                            </TableCell>
+                            <TableCell>
+                              <Button 
+                                variant="ghost"
+                                onClick={() => navigate(`/invoices/${invoice.id}`)}
+                              >
+                                View Details
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                      {invoices.length > 1 && (
+                        <tfoot>
+                          <TableRow>
+                            <TableCell colSpan={2} className="font-medium">
+                              Total
+                            </TableCell>
+                            <TableCell className="font-bold">
+                              {formatCurrency(
+                                invoices.reduce((sum, invoice) => sum + Number(invoice.total_amount || 0), 0)
+                              )}
+                            </TableCell>
+                            <TableCell colSpan={4}></TableCell>
+                          </TableRow>
+                        </tfoot>
+                      )}
+                    </Table>
+                  ) : (
+                    <div className="text-center py-4 text-gray-500">
+                      No invoices found for this booking
+                    </div>
+                  )}
+                </div>
+              </div>
             </TabsContent>
-            <TabsContent value="techlog" className="p-4">
-              <div className="text-gray-500">Tech log information will be displayed here</div>
+            <TabsContent value="instructor-comments">
+              <div className="space-y-6">
+                <div className="bg-white rounded-lg shadow p-6">
+                  <h3 className="text-lg font-semibold mb-4">Instructor Comments</h3>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    {booking?.instructor && (
+                      <p className="text-gray-900 font-semibold mb-2">
+                        {booking.instructor.name}
+                      </p>
+                    )}
+                    {booking?.instructor_comment ? (
+                      <p className="text-gray-700 whitespace-pre-wrap">
+                        {booking.instructor_comment}
+                      </p>
+                    ) : (
+                      <p className="text-gray-500 italic">No instructor comments available</p>
+                    )}
+                  </div>
+                </div>
+              </div>
             </TabsContent>
             <TabsContent value="history" className="p-4">
               <div className="text-gray-500">Booking history will be displayed here</div>
@@ -212,6 +461,15 @@ const BookingDetail = () => {
           </div>
         </div>
       </div>
+
+      {/* Add the modal */}
+      {booking && (
+        <EditBookingModal
+          booking={booking}
+          open={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+        />
+      )}
     </div>
   )
 }

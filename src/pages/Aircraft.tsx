@@ -1,4 +1,6 @@
-import React from 'react';
+import React from 'react'
+import { useAircraft } from '../hooks/useAircraft'
+import { Link } from 'react-router-dom'
 import {
   Table,
   TableBody,
@@ -6,40 +8,25 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../components/ui/table";
-import { Input } from "../components/ui/input";
-import { Button } from "../components/ui/button";
-import { PlusCircle } from 'lucide-react';
-import { Link } from 'react-router-dom';
-
-interface Aircraft {
-  id: string;
-  registration: string;
-  type: string;
-  model: string;
-}
-
-const aircraftData: Aircraft[] = [
-  { id: 'aircraft-1', registration: 'FLC', type: 'C-152', model: 'Cessna 152' },
-  { id: 'aircraft-2', registration: 'JEN', type: 'A-152', model: 'Aerobat' },
-  { id: 'aircraft-3', registration: 'KID', type: 'A-152', model: 'Aerobat' },
-  { id: 'aircraft-4', registration: 'ELA', type: 'C-152', model: 'Cessna 152' },
-  { id: 'aircraft-5', registration: 'FPI', type: 'C-152', model: 'Cessna 152' },
-  { id: 'aircraft-6', registration: 'EKM', type: 'C-152', model: 'Cessna 152' },
-  { id: 'aircraft-7', registration: 'ELS', type: 'A-152', model: 'Aerobat' },
-  { id: 'aircraft-8', registration: 'TDL', type: 'PA-38', model: 'Tomahawk' },
-  { id: 'aircraft-9', registration: 'DRP', type: 'C172M', model: 'Skyhawk' },
-  { id: 'aircraft-10', registration: 'KAZ', type: 'C-172SP', model: 'Skyhawk G1000' },
-];
+} from "../components/ui/table"
+import { Input } from "../components/ui/input"
+import { Button } from "../components/ui/button"
+import { PlusCircle } from 'lucide-react'
+import { Badge } from '../components/ui/badge'
 
 const AircraftPage = () => {
-  const [searchTerm, setSearchTerm] = React.useState('');
+  const { data: aircraft, isLoading } = useAircraft()
+  const [searchTerm, setSearchTerm] = React.useState('')
 
-  const filteredAircraft = aircraftData.filter(aircraft =>
+  const filteredAircraft = aircraft?.filter(aircraft =>
     aircraft.registration.toLowerCase().includes(searchTerm.toLowerCase()) ||
     aircraft.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
     aircraft.model.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  ) ?? []
+
+  if (isLoading) {
+    return <div className="p-6">Loading aircraft...</div>
+  }
 
   return (
     <div className="p-6">
@@ -68,6 +55,8 @@ const AircraftPage = () => {
               <TableHead>Registration</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Model</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Engine Hours</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -75,7 +64,7 @@ const AircraftPage = () => {
             {filteredAircraft.map((aircraft) => (
               <TableRow key={aircraft.id}>
                 <TableCell>
-                  <Link 
+                  <Link
                     to={`/aircraft/${aircraft.id}`}
                     className="text-blue-600 hover:underline font-medium"
                   >
@@ -84,6 +73,18 @@ const AircraftPage = () => {
                 </TableCell>
                 <TableCell>{aircraft.type}</TableCell>
                 <TableCell>{aircraft.model}</TableCell>
+                <TableCell>
+                  <Badge
+                    className={
+                      aircraft.status === 'Active' ? 'bg-green-100 text-green-800' :
+                      aircraft.status === 'Maintenance' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-red-100 text-red-800'
+                    }
+                  >
+                    {aircraft.status}
+                  </Badge>
+                </TableCell>
+                <TableCell>{aircraft.engine_hours}</TableCell>
                 <TableCell>
                   <Button 
                     variant="ghost" 
@@ -98,7 +99,7 @@ const AircraftPage = () => {
         </Table>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default AircraftPage; 
+export default AircraftPage 

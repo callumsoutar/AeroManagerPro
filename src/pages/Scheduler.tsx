@@ -7,6 +7,8 @@ import resourceTimelinePlugin from '@fullcalendar/resource-timeline'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import { Tooltip } from 'react-tooltip'
 import { format } from 'date-fns'
+import { useNavigate } from 'react-router-dom'
+import { bookings } from '../data/bookings'
 
 interface EventContent {
   event: {
@@ -24,6 +26,7 @@ interface EventContent {
 const Scheduler = () => {
   const [isNewBookingModalOpen, setIsNewBookingModalOpen] = useState(false)
   const calendarRef = React.useRef<any>(null)
+  const navigate = useNavigate()
 
   // Define all resources inside the component
   const resources = [
@@ -58,47 +61,27 @@ const Scheduler = () => {
     { title: 'KAZ (C-172SP Skyhawk G1000)', id: 'aircraft-10', eventColor: '#f5a623', order: 17 },
   ]
 
-  const events = [
-    {
-      id: '1',
-      title: 'LWOP',
-      start: '2024-12-24T09:00:00+13:00',
-      end: '2024-12-24T17:00:00+13:00',
-      resourceId: 'staff-1',
-      backgroundColor: '#4a90e2',
-      extendedProps: {
-        instructor: 'Diego Acevedo',
-        aircraft: 'N/A',
-        comments: 'Leave without pay'
-      }
-    },
-    {
-      id: '2',
-      title: 'Liau - Boxing Day',
-      start: '2024-12-25T08:00:00+13:00',
-      end: '2024-12-25T18:00:00+13:00',
-      resourceId: 'staff-2',
-      backgroundColor: '#4a90e2',
-      extendedProps: {
-        instructor: 'Trinity Hart',
-        aircraft: 'N/A',
-        comments: 'Boxing Day leave'
-      }
-    },
-    {
-      id: '3',
-      title: 'TDL 100 HR (Maintenance)',
-      start: '2024-12-24T08:00:00+13:00',
-      end: '2024-12-24T20:00:00+13:00',
-      resourceId: 'aircraft-8',
-      backgroundColor: '#7f8c8d',
-      extendedProps: {
-        instructor: 'N/A',
-        aircraft: 'TDL (PA-38 Tomahawk)',
-        comments: '100 hour maintenance check'
-      }
-    },
-  ]
+  // Convert bookings to FullCalendar events
+  const events = bookings.map(booking => ({
+    id: booking.id,
+    title: `${booking.member} - ${booking.type}`,
+    start: booking.startTime,
+    end: booking.endTime,
+    resourceId: booking.instructor ? 
+      // If there's an instructor, assign to instructor's resource
+      `staff-${Math.floor(Math.random() * 6) + 1}` : 
+      // If no instructor, assign to aircraft's resource
+      `aircraft-${Math.floor(Math.random() * 10) + 1}`,
+    backgroundColor: booking.status === 'flying' ? '#4a90e2' : 
+                    booking.status === 'confirmed' ? '#7cbd5f' : 
+                    booking.status === 'unconfirmed' ? '#f5a623' : '#95a5a6',
+    extendedProps: {
+      instructor: booking.instructor,
+      aircraft: booking.aircraft,
+      status: booking.status,
+      description: booking.description
+    }
+  }))
 
   const renderEventContent = (eventInfo: EventContent) => {
     const tooltipId = `tooltip-${eventInfo.event.title}-${eventInfo.event.start}`
@@ -132,6 +115,10 @@ const Scheduler = () => {
         </Tooltip>
       </>
     )
+  }
+
+  const handleEventClick = (info: any) => {
+    navigate(`/bookings/${info.event.id}`)
   }
 
   return (
@@ -200,9 +187,10 @@ const Scheduler = () => {
           resourceOrder="order"
           resourceAreaHeaderContent=""
           timeZone="Pacific/Auckland"
-          initialDate="2024-12-24"
+          initialDate="2024-12-31"
           eventContent={renderEventContent}
           eventClassNames="h-full"
+          eventClick={handleEventClick}
           datesSet={(dateInfo) => {
             console.log('Current date:', dateInfo.start)
           }}

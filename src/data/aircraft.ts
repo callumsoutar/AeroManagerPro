@@ -11,6 +11,8 @@ export interface Aircraft {
   photoUrl?: string;
   currentTacho?: number;
   currentHobbs?: number;
+  recordTacho: boolean;
+  recordHobbs: boolean;
 }
 
 export const aircraftData: Aircraft[] = [
@@ -24,9 +26,11 @@ export const aircraftData: Aircraft[] = [
     engineHours: 1250,
     lastMaintenance: '2024-02-15',
     nextServiceDue: '2024-04-15',
-    photoUrl: 'https://example.com/c172.jpg',
+    photoUrl: '/public/FLC.png',
     currentTacho: 2750,
-    currentHobbs: 2800
+    currentHobbs: 2800,
+    recordTacho: false,
+    recordHobbs: true
   },
   {
     id: 'aircraft-2',
@@ -39,7 +43,9 @@ export const aircraftData: Aircraft[] = [
     nextServiceDue: '2024-02-15',
     status: 'Active',
     currentTacho: 3100,
-    currentHobbs: 3150
+    currentHobbs: 3150,
+    recordTacho: false,
+    recordHobbs: true
   },
   {
     id: 'aircraft-3',
@@ -52,7 +58,9 @@ export const aircraftData: Aircraft[] = [
     nextServiceDue: '2024-03-10',
     status: 'Active',
     currentTacho: 2900,
-    currentHobbs: 2950
+    currentHobbs: 2950,
+    recordTacho: false,
+    recordHobbs: true
   },
   {
     id: 'aircraft-4',
@@ -65,7 +73,9 @@ export const aircraftData: Aircraft[] = [
     nextServiceDue: '2024-04-05',
     status: 'Active',
     currentTacho: 2600,
-    currentHobbs: 2650
+    currentHobbs: 2650,
+    recordTacho: false,
+    recordHobbs: true
   },
   {
     id: 'aircraft-5',
@@ -78,7 +88,9 @@ export const aircraftData: Aircraft[] = [
     nextServiceDue: '2024-04-20',
     status: 'Active',
     currentTacho: 2400,
-    currentHobbs: 2450
+    currentHobbs: 2450,
+    recordTacho: false,
+    recordHobbs: true
   },
   {
     id: 'aircraft-6',
@@ -91,7 +103,9 @@ export const aircraftData: Aircraft[] = [
     nextServiceDue: '2024-03-15',
     status: 'Maintenance',
     currentTacho: 2800,
-    currentHobbs: 2850
+    currentHobbs: 2850,
+    recordTacho: false,
+    recordHobbs: true
   },
   {
     id: 'aircraft-7',
@@ -104,7 +118,9 @@ export const aircraftData: Aircraft[] = [
     nextServiceDue: '2024-04-10',
     status: 'Active',
     currentTacho: 2200,
-    currentHobbs: 2250
+    currentHobbs: 2250,
+    recordTacho: false,
+    recordHobbs: true
   },
   {
     id: 'aircraft-8',
@@ -117,7 +133,9 @@ export const aircraftData: Aircraft[] = [
     nextServiceDue: '2024-02-28',
     status: 'Maintenance',
     currentTacho: 2500,
-    currentHobbs: 2550
+    currentHobbs: 2550,
+    recordTacho: false,
+    recordHobbs: true
   },
   {
     id: 'aircraft-9',
@@ -130,7 +148,9 @@ export const aircraftData: Aircraft[] = [
     nextServiceDue: '2024-04-15',
     status: 'Active',
     currentTacho: 3000,
-    currentHobbs: 3050
+    currentHobbs: 3050,
+    recordTacho: false,
+    recordHobbs: true
   },
   {
     id: 'aircraft-10',
@@ -143,6 +163,8 @@ export const aircraftData: Aircraft[] = [
     nextServiceDue: '2024-04-25',
     status: 'Active',
     currentTacho: 1900,
-    currentHobbs: 1950
+    currentHobbs: 1950,
+    recordTacho: false,
+    recordHobbs: true
   }
 ] 
