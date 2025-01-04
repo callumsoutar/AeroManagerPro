@@ -59,7 +59,7 @@ export function AddDefectModal({ isOpen, onClose, aircraftId }: AddDefectModalPr
 
     setIsLoading(true)
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('defects')
         .insert([
           {
@@ -68,8 +68,8 @@ export function AddDefectModal({ isOpen, onClose, aircraftId }: AddDefectModalPr
             description: formData.description,
             status: formData.status,
             reported_date: new Date().toISOString(),
-            reported_by: 'db5180c7-6b91-489b-9aa2-8ba0faecfd40', // Hardcoded user ID
-            comments: [] // Initialize empty comments array
+            reported_by: 'db5180c7-6b91-489b-9aa2-8ba0faecfd40',
+            comments: []
           }
         ])
         .select()
@@ -78,7 +78,9 @@ export function AddDefectModal({ isOpen, onClose, aircraftId }: AddDefectModalPr
       if (error) throw error
 
       toast.success('Defect reported successfully')
-      queryClient.invalidateQueries(['aircraft', targetAircraftId])
+      queryClient.invalidateQueries({ 
+        queryKey: ['aircraft', targetAircraftId] 
+      })
       onClose()
       setFormData({
         name: '',
