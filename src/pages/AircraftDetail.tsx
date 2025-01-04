@@ -8,6 +8,8 @@ import { format, isValid, parseISO } from 'date-fns'
 import { Button } from "../components/ui/button"
 import { DefectModal } from '../components/modals/DefectModal'
 import { cn } from '../lib/utils'
+import { AddDefectModal } from "../components/modals/AddDefectModal"
+import { Plus } from 'lucide-react'
 
 function getUserFullName(user: { first_name: string; last_name: string }) {
   return `${user.first_name} ${user.last_name}`
@@ -53,6 +55,7 @@ const AircraftDetail = () => {
   const navigate = useNavigate()
   const { data: aircraft, isLoading, error, isError } = useAircraft(id!)
   const [selectedDefect, setSelectedDefect] = useState<Defect | null>(null)
+  const [isAddDefectModalOpen, setIsAddDefectModalOpen] = useState(false)
 
   // Debug logs
   console.log('Aircraft detail render:', {
@@ -263,7 +266,11 @@ const AircraftDetail = () => {
           <TabsContent value="defects" className="p-4">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">Defects</h3>
-              <Button variant="outline" size="sm">
+              <Button 
+                onClick={() => setIsAddDefectModalOpen(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <Plus className="h-4 w-4 mr-2" />
                 Report New Defect
               </Button>
             </div>
@@ -444,6 +451,13 @@ const AircraftDetail = () => {
           onClose={() => setSelectedDefect(null)}
         />
       )}
+
+      {/* Add Defect Modal */}
+      <AddDefectModal
+        isOpen={isAddDefectModalOpen}
+        onClose={() => setIsAddDefectModalOpen(false)}
+        aircraftId={aircraft.id}
+      />
     </div>
   )
 }

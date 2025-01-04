@@ -51,33 +51,41 @@ export function AddDefectModal({ isOpen, onClose, aircraftId }: AddDefectModalPr
       return
     }
 
-    if (!aircraftId && !formData.selectedAircraftId) {
+    const targetAircraftId = aircraftId || formData.selectedAircraftId
+    if (!targetAircraftId) {
       toast.error('Please select an aircraft')
       return
     }
 
     setIsLoading(true)
     try {
-      const user = await supabase.auth.getUser()
-      if (!user.data.user) throw new Error('Not authenticated')
-
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('defects')
-        .insert({
-          aircraft_id: aircraftId || formData.selectedAircraftId,
-          name: formData.name.trim(),
-          description: formData.description.trim(),
-          status: formData.status,
-          reported_date: new Date().toISOString(),
-          reported_by: user.data.user.id,
-          comments: []
-        })
+        .insert([
+          {
+            aircraft_id: targetAircraftId,
+            name: formData.name,
+            description: formData.description,
+            status: formData.status,
+            reported_date: new Date().toISOString(),
+            reported_by: 'db5180c7-6b91-489b-9aa2-8ba0faecfd40', // Hardcoded user ID
+            comments: [] // Initialize empty comments array
+          }
+        ])
+        .select()
+        .single()
 
       if (error) throw error
 
-      queryClient.invalidateQueries({ queryKey: ['aircraft'] })
       toast.success('Defect reported successfully')
+      queryClient.invalidateQueries(['aircraft', targetAircraftId])
       onClose()
+      setFormData({
+        name: '',
+        description: '',
+        status: 'Open',
+        selectedAircraftId: aircraftId || ''
+      })
     } catch (error) {
       console.error('Error creating defect:', error)
       toast.error('Failed to create defect')
