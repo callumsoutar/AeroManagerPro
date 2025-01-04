@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { Button } from "../components/ui/button"
 import { Badge } from "../components/ui/badge"
@@ -8,15 +8,20 @@ import { FileEdit, CheckCircle2, FileText } from 'lucide-react'
 import { useBooking } from '../hooks/useBooking'
 import { getFullName } from '../lib/utils'
 import { EditBookingModal } from "../components/modals/EditBookingModal"
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { Table, TableHeader, TableBody, TableCell, TableHead, TableRow } from "../components/ui/table"
+import { BlobProvider } from "@react-pdf/renderer"
+import { SignOutSheet } from "../components/pdf/SignOutSheet"
+import type { ReactElement } from 'react'
+import { toast } from 'sonner'
 
 const BookingDetail = () => {
   const { id } = useParams<{ id: string }>()
   const { data: booking, isLoading } = useBooking(id!)
   const navigate = useNavigate()
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const queryClient = useQueryClient()
 
   const { data: invoices } = useQuery({
     queryKey: ['invoices', booking?.id],
@@ -38,6 +43,30 @@ const BookingDetail = () => {
     },
     enabled: !!booking?.id
   })
+
+  const handleConfirmBooking = async () => {
+    if (!booking) return;
+    
+    try {
+      const { error } = await supabase
+        .from('bookings')
+        .update({ status: 'confirmed' })
+        .eq('id', booking.id)
+
+      if (error) throw error
+
+      queryClient.invalidateQueries({ queryKey: ['booking', id] })
+      toast.success('Booking confirmed successfully')
+      
+      // Add a slight delay before refreshing to ensure the toast is visible
+      setTimeout(() => {
+        window.location.reload()
+      }, 1000)
+    } catch (error) {
+      console.error('Error confirming booking:', error)
+      toast.error('Failed to confirm booking')
+    }
+  }
 
   if (isLoading) {
     return <div className="p-6">Loading booking details...</div>
@@ -75,8 +104,28 @@ const BookingDetail = () => {
     }).format(amount)
   }
 
+  const PrintCheckoutSheet = (): ReactElement => (
+    <BlobProvider document={<SignOutSheet booking={booking} />}>
+      {({ loading, url }) => (
+        <Button 
+          className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+          disabled={loading}
+          type="button"
+          onClick={() => {
+            if (url) {
+              window.open(url);
+            }
+          }}
+        >
+          <FileText className="h-4 w-4" />
+          {loading ? "Preparing PDF..." : "Print Checkout Sheet"}
+        </Button>
+      )}
+    </BlobProvider>
+  );
+
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-8">
         <div>
           <div className="flex items-center gap-4 mb-1">
@@ -180,6 +229,43 @@ const BookingDetail = () => {
                           </div>
                         )}
                       </div>
+                    </div>
+                  )}
+
+                  {(booking.status === 'flying' && booking.checked_out_time) && (
+                    <div className="border-t pt-4 mt-4 space-y-2">
+                      <PrintCheckoutSheet />
+                      <Button 
+                        onClick={() => navigate(`/bookings/${booking.id}/flight-details`)}
+                        className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                        Complete Flight Details
+                      </Button>
+                    </div>
+                  )}
+
+                  {booking.status === 'confirmed' && (
+                    <div className="border-t pt-4 mt-4">
+                      <Button 
+                        onClick={() => navigate(`/bookings/${booking.id}/checkout`)}
+                        className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                        Check Out Flight
+                      </Button>
+                    </div>
+                  )}
+
+                  {booking.status === 'unconfirmed' && (
+                    <div className="border-t pt-4 mt-4">
+                      <Button 
+                        onClick={handleConfirmBooking}
+                        className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                        Confirm Booking
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -408,31 +494,6 @@ const BookingDetail = () => {
               <div className="text-gray-500">Booking history will be displayed here</div>
             </TabsContent>
           </Tabs>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="border-t p-6">
-          <div className="flex justify-end gap-4">
-            {booking.status === 'confirmed' && (
-              <Button 
-                className="bg-blue-600 hover:bg-blue-700 px-8"
-                onClick={() => navigate(`/bookings/${booking.id}/checkout`)}
-              >
-                <CheckCircle2 className="h-4 w-4 mr-2" />
-                Check Out Flight
-              </Button>
-            )}
-            
-            {booking.status === 'flying' && (
-              <Button 
-                className="bg-green-600 hover:bg-green-700 px-8"
-                onClick={() => navigate(`/bookings/${booking.id}/flight-details`)}
-              >
-                <FileText className="h-4 w-4 mr-2" />
-                Complete Flight Details
-              </Button>
-            )}
-          </div>
         </div>
       </div>
 
