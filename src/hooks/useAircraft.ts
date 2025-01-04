@@ -1,30 +1,135 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
-import type { Database } from '../lib/database.types'
 
-type AircraftRow = Database['public']['Tables']['aircraft']['Row']
-type EquipmentRow = Database['public']['Tables']['equipment']['Row']
-type DefectRow = Database['public']['Tables']['defects']['Row']
-type RateRow = Database['public']['Tables']['aircraft_rates']['Row']
-type BookingRow = Database['public']['Tables']['bookings']['Row']
+export interface Equipment {
+  id: string
+  type: string
+  last_completed: string
+  next_due: string
+  days_remaining: number
+  hours_remaining: number
+}
 
-// Add new types for the joined data
-interface RateWithFlightType extends RateRow {
+export interface Defect {
+  id: string
+  name: string
+  description: string
+  status: string
+  reported_date: string
+  reported_by: string
+  reported_by_user: {
+    first_name: string
+    last_name: string
+  }
+  comments: Array<{
+    text: string
+    user: string
+    timestamp: string
+  }>
+  aircraft_id: string
+}
+
+export interface Rate {
+  id: string
   flight_type: {
     name: string
-    description: string | null
+  }
+  rate: number
+}
+
+export interface Booking {
+  id: string
+  start_time: string
+  end_time: string
+  user: {
+    first_name: string
+    last_name: string
+  }
+  instructor: {
+    name: string
+  } | null
+  flight_type: {
+    name: string
+  }
+  flight_time: number
+  tacho_start: number
+  tacho_end: number
+  hobbs_start: number
+  hobbs_end: number
+}
+
+export interface Aircraft {
+  id: string
+  registration: string
+  type: string
+  model: string
+  year: number
+  engine_hours: number
+  last_maintenance: string
+  next_service_due: string
+  status: string
+  photo_url: string | null
+  equipment: Equipment[]
+  defects: Defect[]
+  rates: Rate[]
+  bookings: Booking[]
+}
+
+// Add interface for the raw data structure from Supabase
+interface AircraftRate {
+  id: string
+  rate: number
+  flight_types: {
+    id: string
+    name: string
+  }
+}
+
+// Add interface for raw booking data from Supabase
+interface RawBooking {
+  id: string
+  start_time: string
+  end_time: string
+  user: {
+    first_name: string
+    last_name: string
+  }
+  instructor: {
+    first_name: string
+    last_name: string
+  } | null
+  flight_types: {
+    name: string
+  }
+  flight_time: number
+  tacho_start: number
+  tacho_end: number
+  hobbs_start: number
+  hobbs_end: number
+}
+
+// Add more specific error handling
+class AircraftError extends Error {
+  constructor(message: string, public code?: string) {
+    super(message)
+    this.name = 'AircraftError'
+  }
+}
+
+// Add stricter typing for the response
+interface SupabaseResponse<T> {
+  data: T | null
+  error: {
+    code: string
+    message: string
+    details?: string
   } | null
 }
 
-interface BookingWithDetails extends BookingRow {
-  user: { name: string } | null
-  instructor: { name: string } | null
-  flight_type: { name: string } | null
-}
-
-export function useAircraft() {
+// Hook for fetching a list of aircraft
+export function useAircraftList() {
   return useQuery({
-    queryKey: ['aircraft'],
+    queryKey: ['aircraft-list'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('aircraft')
@@ -32,86 +137,137 @@ export function useAircraft() {
         .order('registration')
 
       if (error) throw error
-      return data as AircraftRow[]
-    },
+      return data as Aircraft[]
+    }
   })
 }
 
-export function useAircraftDetail(id: string) {
+// Hook for fetching a single aircraft with details
+export function useAircraft(id: string) {
   return useQuery({
     queryKey: ['aircraft', id],
     queryFn: async () => {
+      if (!id) {
+        throw new AircraftError('Aircraft ID is required')
+      }
+
       try {
-        const [aircraftResponse, equipmentResponse, defectsResponse, ratesResponse, flightHistoryResponse] = await Promise.all([
-          // Get aircraft details
-          supabase
-            .from('aircraft')
-            .select('*')
-            .eq('id', id)
-            .single(),
-          
-          // Get equipment
-          supabase
-            .from('equipment')
-            .select('*')
-            .eq('aircraft_id', id),
-          
-          // Get defects with comments and user info
-          supabase
-            .from('defects')
-            .select(`
-              *,
-              reported_by_user:reported_by(name)
-            `)
-            .eq('aircraft_id', id)
-            .order('reported_date', { ascending: false }),
-          
-          // Get charge rates
-          supabase
-            .from('aircraft_rates')
-            .select(`
-              *,
-              flight_type:flight_type_id(name, description)
-            `)
-            .eq('aircraft_id', id),
-          
-          // Get completed flights for this aircraft
-          supabase
-            .from('bookings')
-            .select(`
-              *,
-              user:user_id(name),
-              instructor:instructor_id(name),
-              flight_type:flight_type_id(name)
-            `)
-            .eq('aircraft_id', id)
-            .eq('status', 'complete')
-            .order('start_time', { ascending: false })
-        ])
+        const { data, error } = await supabase
+          .from('aircraft')
+          .select(`
+            *,
+            equipment (
+              id,
+              type,
+              last_completed,
+              next_due,
+              days_remaining,
+              hours_remaining
+            ),
+            defects (
+              id,
+              name,
+              description,
+              status,
+              reported_date,
+              reported_by,
+              comments,
+              reported_by_user:users!defects_reported_by_fkey (
+                first_name,
+                last_name
+              )
+            ),
+            aircraft_rates (
+              id,
+              rate,
+              flight_types (
+                id,
+                name
+              )
+            ),
+            bookings (
+              id,
+              start_time,
+              end_time,
+              user:users!bookings_user_id_fkey (
+                first_name,
+                last_name
+              ),
+              instructor:users!bookings_instructor_id_fkey (
+                first_name,
+                last_name
+              ),
+              flight_types (
+                name
+              ),
+              flight_time,
+              tacho_start,
+              tacho_end,
+              hobbs_start,
+              hobbs_end
+            )
+          `)
+          .eq('id', id)
+          .single()
 
-        if (aircraftResponse.error) throw aircraftResponse.error
-        if (!aircraftResponse.data) throw new Error('Aircraft not found')
-
-        // Add error checking for other responses
-        if (equipmentResponse.error) throw equipmentResponse.error
-        if (defectsResponse.error) throw defectsResponse.error
-        if (ratesResponse.error) throw ratesResponse.error
-        if (flightHistoryResponse.error) throw flightHistoryResponse.error
-
-        return {
-          aircraft: aircraftResponse.data as AircraftRow,
-          equipment: (equipmentResponse.data || []) as EquipmentRow[],
-          defects: (defectsResponse.data || []) as (DefectRow & {
-            reported_by_user: { name: string } | null
-          })[],
-          rates: (ratesResponse.data || []) as RateWithFlightType[],
-          flightHistory: (flightHistoryResponse.data || []) as BookingWithDetails[]
+        if (error) {
+          throw new AircraftError(error.message, error.code)
         }
+
+        if (!data) {
+          throw new AircraftError('Aircraft not found')
+        }
+
+        // Add validation for required fields
+        if (!data.registration || !data.type) {
+          throw new AircraftError('Invalid aircraft data')
+        }
+
+        const transformedData = {
+          ...data,
+          rates: data.aircraft_rates?.map((rate: AircraftRate) => ({
+            id: rate.id,
+            rate: rate.rate,
+            flight_type: {
+              name: rate.flight_types?.name || 'Unknown'
+            }
+          })) || [],
+          bookings: data.bookings?.map((booking: RawBooking) => ({
+            id: booking.id,
+            start_time: booking.start_time,
+            end_time: booking.end_time,
+            user: booking.user || { first_name: 'Unknown', last_name: 'User' },
+            instructor: booking.instructor ? {
+              name: `${booking.instructor.first_name} ${booking.instructor.last_name}`.trim() || 'Unknown'
+            } : null,
+            flight_type: {
+              name: booking.flight_types?.name || 'Unknown'
+            },
+            flight_time: booking.flight_time || 0,
+            tacho_start: booking.tacho_start || 0,
+            tacho_end: booking.tacho_end || 0,
+            hobbs_start: booking.hobbs_start || 0,
+            hobbs_end: booking.hobbs_end || 0
+          })) || []
+        }
+
+        // Add debug logging
+        console.log('Fetched defects with comments:', data?.defects)
+
+        return transformedData as Aircraft
       } catch (error) {
-        console.error('Error fetching aircraft details:', error)
+        console.error('Aircraft fetch error:', error)
         throw error
       }
     },
-    enabled: !!id
+    enabled: !!id,
+    staleTime: 1000 * 60 * 5,
+    retry: (failureCount, error) => {
+      // Only retry network errors, not data validation errors
+      if (error instanceof AircraftError) {
+        return false
+      }
+      return failureCount < 3
+    }
   })
 } 

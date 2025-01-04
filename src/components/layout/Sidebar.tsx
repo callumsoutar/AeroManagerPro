@@ -32,7 +32,7 @@ const Sidebar: React.FC = () => {
   ];
 
   return (
-    <aside className="w-[200px] h-screen bg-[#1a1a2e] text-white fixed left-0 top-0 py-5">
+    <aside className="w-[240px] h-screen bg-[#1a1a2e] text-white fixed left-0 top-0 py-5 z-50">
       <div className="px-5 mb-8 flex items-center gap-3">
         <div className="text-blue-400">
           <FaPlane size={24} />

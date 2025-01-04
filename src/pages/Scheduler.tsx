@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Button } from "../components/ui/button"
 import { Plus } from 'lucide-react'
-import NewBookingModal from '../components/modals/NewBookingModal'
+import { NewBookingModal } from '../components/modals/NewBookingModal'
 import FullCalendar from '@fullcalendar/react'
 import resourceTimelinePlugin from '@fullcalendar/resource-timeline'
 import timeGridPlugin from '@fullcalendar/timegrid'
@@ -198,7 +198,7 @@ const Scheduler = () => {
       </div>
 
       <NewBookingModal 
-        isOpen={isNewBookingModalOpen}
+        open={isNewBookingModalOpen}
         onClose={() => setIsNewBookingModalOpen(false)}
       />
     </div>

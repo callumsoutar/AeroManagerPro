@@ -82,15 +82,15 @@ export function EditMemberModal({ open, onClose, user }: EditMemberModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
-          <DialogTitle className="text-2xl">Edit Contact Details</DialogTitle>
+      <DialogContent className="sm:max-w-[800px] bg-white p-6 max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="mb-6">
+          <DialogTitle className="text-2xl font-semibold">Edit Contact Details</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-8">
           {/* Personal Information */}
-          <div>
-            <h3 className="text-base font-semibold mb-4">Personal Information</h3>
+          <div className="bg-gray-50 rounded-lg p-6 space-y-6">
+            <h3 className="text-base font-semibold text-gray-900">Personal Information</h3>
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-3">
                 <Label htmlFor="first_name">First Name</Label>
@@ -161,8 +161,8 @@ export function EditMemberModal({ open, onClose, user }: EditMemberModalProps) {
           </div>
 
           {/* Address Information */}
-          <div>
-            <h3 className="text-base font-semibold mb-4">Address Information</h3>
+          <div className="bg-gray-50 rounded-lg p-6 space-y-6">
+            <h3 className="text-base font-semibold text-gray-900">Address Information</h3>
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-3">
                 <Label htmlFor="address">Address</Label>
@@ -185,8 +185,8 @@ export function EditMemberModal({ open, onClose, user }: EditMemberModalProps) {
           </div>
 
           {/* Emergency Contact */}
-          <div>
-            <h3 className="text-base font-semibold mb-4">Emergency Contact</h3>
+          <div className="bg-gray-50 rounded-lg p-6 space-y-6">
+            <h3 className="text-base font-semibold text-gray-900">Emergency Contact</h3>
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-3">
                 <Label htmlFor="emergency_contact_name">Contact Name</Label>
@@ -214,6 +214,7 @@ export function EditMemberModal({ open, onClose, user }: EditMemberModalProps) {
               variant="outline"
               onClick={onClose}
               disabled={isLoading}
+              className="mr-2"
             >
               Cancel
             </Button>

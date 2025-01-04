@@ -1,5 +1,5 @@
-import React from 'react'
-import { useAircraft } from '../hooks/useAircraft'
+import React, { useMemo, useState } from 'react'
+import { useAircraftList, type Aircraft } from '../hooks/useAircraft'
 import { Link } from 'react-router-dom'
 import {
   Table,
@@ -15,14 +15,15 @@ import { PlusCircle } from 'lucide-react'
 import { Badge } from '../components/ui/badge'
 
 const AircraftPage = () => {
-  const { data: aircraft, isLoading } = useAircraft()
-  const [searchTerm, setSearchTerm] = React.useState('')
+  const { data: aircraftList = [], isLoading } = useAircraftList()
+  const [searchTerm, setSearchTerm] = useState('')
 
-  const filteredAircraft = aircraft?.filter(aircraft =>
-    aircraft.registration.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    aircraft.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    aircraft.model.toLowerCase().includes(searchTerm.toLowerCase())
-  ) ?? []
+  const filteredAircraft = useMemo(() => {
+    return aircraftList.filter((aircraft: Aircraft) =>
+      aircraft.registration.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      aircraft.type.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  }, [aircraftList, searchTerm])
 
   if (isLoading) {
     return <div className="p-6">Loading aircraft...</div>

@@ -1,217 +1,494 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { bookings } from '../data/bookings'
+import { useBooking } from '../hooks/useBooking'
 import { Button } from "../components/ui/button"
 import { Badge } from "../components/ui/badge"
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs"
 import { Input } from "../components/ui/input"
-import { Textarea } from "../components/ui/textarea" 
-import { currentDefects } from '../data/defects'
+import { Textarea } from "../components/ui/textarea"
+import { getFullName } from '../lib/utils'
+import { supabase } from '../lib/supabase'
+import { toast } from 'sonner'
+import { EditBookingModal } from "../components/modals/EditBookingModal"
+import { FileEdit, AlertTriangle } from 'lucide-react'
+import { useBookingAlerts } from '../hooks/useBookingAlerts'
+import { cn } from '../lib/utils'
+import { useQuery } from '@tanstack/react-query'
+import { format } from 'date-fns'
+import { DefectModal } from "../components/modals/DefectModal"
 
-interface Defect {
-  id: string;
-  aircraft: string;
-  description: string;
-  status: 'Open' | 'In Progress' | 'Resolved';
-  reportedDate: string;
+interface CheckoutForm {
+  eta: string
+  route: string
+  description: string
 }
 
 const CheckoutBooking = () => {
-  const { id } = useParams()
+  const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const booking = bookings.find(b => b.id === id)
+  const { data: booking, isLoading, error } = useBooking(id!)
+  const { data: alerts = [], isLoading: alertsLoading } = useBookingAlerts(id!)
   
-  // Get aircraft defects for this aircraft
-  const relevantDefects = currentDefects.filter(
-    (defect: Defect) => defect.aircraft === booking?.aircraft
-  )
-
-  const [checkoutData, setCheckoutData] = useState({
-    eta: '',
-    flightDetails: '',
-    route: '',
-    fuelRequired: '',
-    specialNotes: ''
+  console.log('Booking data:', {
+    id: booking?.id,
+    aircraft_id: booking?.aircraft_id,
+    queryEnabled: !!booking?.aircraft_id
   })
 
-  if (!booking) {
-    return <div className="p-6">Booking not found</div>
+  const { data: aircraft } = useQuery({
+    queryKey: ['aircraft', booking?.aircraft_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('aircraft')
+        .select('current_tacho, current_hobbs')
+        .eq('id', booking?.aircraft_id)
+        .single()
+
+      if (error) throw error
+      return data
+    },
+    enabled: !!booking?.aircraft_id
+  })
+
+  const { data: defects = [], isLoading: defectsLoading } = useQuery({
+    queryKey: ['defects', booking?.aircraft_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('defects')
+        .select('*')
+        .eq('aircraft_id', booking?.aircraft_id)
+
+      if (error) throw error
+
+      // Filter out resolved defects
+      return data?.filter(d => d.status.toLowerCase() !== 'resolved') || []
+    },
+    enabled: !!booking?.aircraft_id
+  })
+
+  useEffect(() => {
+    console.log('Current booking:', booking)
+    console.log('Aircraft ID:', booking?.aircraft_id)
+    console.log('Defects data:', defects)
+    console.log('Defects loading:', defectsLoading)
+  }, [booking, defects, defectsLoading])
+
+  console.log('Defects to render:', defects)
+
+  const [formData, setFormData] = useState<CheckoutForm>({
+    eta: '',
+    route: '',
+    description: ''
+  })
+
+  useEffect(() => {
+    if (booking) {
+      setFormData(prev => ({
+        ...prev,
+        route: booking.route || '',
+        description: booking.description || ''
+      }))
+    }
+  }, [booking])
+
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [selectedDefect, setSelectedDefect] = useState<any>(null)
+
+  const formatEtaForSupabase = (timeString: string) => {
+    if (!timeString) return null
+    
+    // Get current date
+    const today = new Date()
+    const [hours, minutes] = timeString.split(':')
+    
+    // Create new date with today's date and input time
+    const etaDate = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate(),
+      parseInt(hours),
+      parseInt(minutes)
+    )
+
+    // Return ISO string for Supabase
+    return etaDate.toISOString()
   }
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setCheckoutData(prev => ({
-      ...prev,
-      [name]: value
-    }))
+  const getStatusBadgeStyle = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'confirmed':
+        return 'bg-green-100 text-green-800'
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800'
+      case 'cancelled':
+        return 'bg-red-100 text-red-800'
+      case 'flying':
+        return 'bg-blue-100 text-blue-800'
+      default:
+        return 'bg-gray-100 text-gray-500'
+    }
   }
 
-  const handleCheckIn = () => {
-    // Navigate to the flight details page
-    navigate(`/bookings/${id}/flight-details`)
+  useEffect(() => {
+    if (booking && booking.status !== 'confirmed') {
+      toast.error('This booking cannot be checked out')
+      navigate(`/bookings/${id}`)
+    }
+  }, [booking, id, navigate])
+
+  const handleViewDefect = async (defectId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('defects')
+        .select(`
+          *,
+          reported_by_user:users!defects_reported_by_fkey (
+            first_name,
+            last_name
+          )
+        `)
+        .eq('id', defectId)
+        .single()
+
+      if (error) throw error
+      setSelectedDefect(data)
+    } catch (error) {
+      console.error('Error fetching defect details:', error)
+      toast.error('Failed to load defect details')
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="p-6 max-w-6xl mx-auto">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Loading...</h1>
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !booking) {
+    return (
+      <div className="p-6 max-w-6xl mx-auto">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Error</h1>
+        </div>
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6">
+          <p className="text-red-600">Failed to load booking details</p>
+          <Button onClick={() => navigate('/bookings')} className="mt-4">
+            Return to Bookings
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  const handleCheckout = async () => {
+    try {
+      const formattedEta = formatEtaForSupabase(formData.eta)
+
+      const { error } = await supabase
+        .from('bookings')
+        .update({ 
+          status: 'flying',
+          checked_out_time: new Date().toISOString(),
+          eta: formattedEta,
+          route: formData.route || null,
+          description: formData.description || null,
+          tacho_start: aircraft?.current_tacho || null,
+          hobbs_start: aircraft?.current_hobbs || null
+        })
+        .eq('id', booking.id)
+
+      if (error) throw error
+
+      toast.success('Flight checked out successfully')
+      navigate(`/bookings/${booking.id}`)
+    } catch (error) {
+      console.error('Error checking out flight:', error)
+      toast.error('Failed to check out flight')
+    }
   }
 
   return (
-    <div className="p-6">
-      {/* Header Section */}
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-6 max-w-6xl mx-auto">
+      <div className="flex justify-between items-center mb-8">
         <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold text-gray-900">{booking.aircraft}</h1>
-            <Badge variant="default">Check Out</Badge>
+          <div className="flex items-center gap-4 mb-1">
+            <h1 className="text-3xl font-bold text-gray-900">Flight Check Out</h1>
+            <Badge className={`text-base px-3 py-1 ${getStatusBadgeStyle(booking.status)}`}>
+              {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+            </Badge>
           </div>
-          <p className="text-gray-500 mt-1">Booking #{booking.id}</p>
+          <p className="text-gray-500">Complete flight details for {booking.aircraft?.registration}</p>
         </div>
-        <Link to="/" className="text-sm text-gray-600 hover:text-blue-600">
-          ← Back to Dashboard
-        </Link>
+        <div className="flex items-center gap-4">
+          <Button
+            variant="outline"
+            onClick={() => setIsEditModalOpen(true)}
+            className="gap-2"
+          >
+            <FileEdit className="h-4 w-4" />
+            Edit Booking
+          </Button>
+          <Link 
+            to={`/bookings/${booking.id}`}
+            className="text-sm text-gray-600 hover:text-blue-600"
+          >
+            ← Back to Booking
+          </Link>
+        </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
-        {/* Left Column - Booking Info */}
-        <div className="col-span-1">
-          <div className="bg-gray-50 rounded-xl shadow-sm border p-4">
-            <h3 className="text-sm font-semibold text-gray-600 mb-4 uppercase">Booking Details</h3>
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs font-medium text-gray-500">Member</label>
-                <p className="text-sm text-gray-900">{booking.member}</p>
+      <div className="grid grid-cols-2 gap-6">
+        {/* Left Column */}
+        <div className="space-y-6">
+          {/* Flight Information Card */}
+          <div className="bg-white rounded-xl shadow-sm border p-6">
+            <div className="flex items-center gap-2 mb-6">
+              <div className="w-1 h-6 bg-blue-500 rounded-full"></div>
+              <h2 className="text-lg font-semibold">Flight Information</h2>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-6">
+              {/* Aircraft Info */}
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-gray-500">Aircraft</label>
+                <p className="text-lg font-medium">{booking.aircraft?.registration}</p>
+                <p className="text-sm text-gray-500">{booking.aircraft?.type}</p>
               </div>
-              <div>
-                <label className="text-xs font-medium text-gray-500">Instructor</label>
-                <p className="text-sm text-gray-900">{booking.instructor || '-'}</p>
+
+              {/* Member Info */}
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-gray-500">Member</label>
+                <p className="text-lg font-medium">
+                  {booking.user ? getFullName(booking.user.first_name, booking.user.last_name) : '-'}
+                </p>
               </div>
-              <div>
-                <label className="text-xs font-medium text-gray-500">Type</label>
-                <p className="text-sm text-gray-900">{booking.type}</p>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-gray-500">Time</label>
-                <p className="text-sm text-gray-900">{booking.startTime} - {booking.endTime}</p>
+
+              {/* Instructor Info */}
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-gray-500">Instructor</label>
+                <p className="text-lg font-medium">{booking.instructor?.name || '-'}</p>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Middle Column - Flight Details Form */}
-        <div className="col-span-1">
-          <div className="bg-white rounded-xl shadow-sm border p-4">
-            <h3 className="text-sm font-semibold text-gray-600 mb-4 uppercase">Flight Details</h3>
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-gray-500">ETA</label>
-                  <Input
-                    name="eta"
-                    value={checkoutData.eta}
-                    onChange={handleInputChange}
-                    placeholder="HH:MM"
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-500">Fuel Required</label>
-                  <Input
-                    name="fuelRequired"
-                    value={checkoutData.fuelRequired}
-                    onChange={handleInputChange}
-                    placeholder="Litres"
-                    className="mt-1"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-gray-500">Route</label>
-                <Input
-                  name="route"
-                  value={checkoutData.route}
-                  onChange={handleInputChange}
-                  placeholder="Flight route"
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-gray-500">Flight Details</label>
-                <Textarea
-                  name="flightDetails"
-                  value={checkoutData.flightDetails}
-                  onChange={handleInputChange}
-                  placeholder="Enter flight details"
-                  className="mt-1 h-20"
-                />
-              </div>
+          {/* Flight Details Card */}
+          <div className="bg-white rounded-xl shadow-sm border p-6">
+            <div className="flex items-center gap-2 mb-6">
+              <div className="w-1 h-6 bg-purple-500 rounded-full"></div>
+              <h2 className="text-lg font-semibold">Flight Details</h2>
             </div>
-          </div>
-        </div>
 
-        {/* Right Column - Defects */}
-        <div className="col-span-1">
-          <div className="bg-white rounded-xl shadow-sm border p-4">
-            <h3 className="text-sm font-semibold text-gray-600 mb-4 uppercase">Outstanding Defects</h3>
-            {relevantDefects.length > 0 ? (
-              <div className="space-y-2">
-                {relevantDefects.map((defect: Defect) => (
-                  <div key={defect.id} className="p-2 bg-gray-50 rounded-md">
-                    <p className="text-sm text-gray-900 font-medium">{defect.description}</p>
-                    <div className="flex justify-between items-center mt-1">
-                      <Badge 
-                        variant={
-                          defect.status === 'Open' ? 'destructive' : 
-                          defect.status === 'In Progress' ? 'default' : 
-                          'secondary'
-                        }
-                      >
-                        {defect.status}
-                      </Badge>
-                      <span className="text-xs text-gray-500">{defect.reportedDate}</span>
+            <div className="space-y-8">
+              {/* Basic Flight Info Section */}
+              <div className="grid grid-cols-2 gap-6 pb-6 border-b">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-500">Flight Type</label>
+                  <p className="text-lg font-medium">{booking.flight_type?.name || '-'}</p>
+                  
+                  <div className="mt-2 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-gray-400">Tacho Start:</span>
+                      <span className="text-xs text-gray-600">
+                        {aircraft?.current_tacho?.toFixed(1) || '-'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-gray-400">Hobbs Start:</span>
+                      <span className="text-xs text-gray-600">
+                        {aircraft?.current_hobbs?.toFixed(1) || '-'}
+                      </span>
                     </div>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500">No outstanding defects</p>
-            )}
-          </div>
-        </div>
-      </div>
+                </div>
 
-      {/* Bottom Section - Tech Log & Actions */}
-      <div className="mt-6 grid grid-cols-3 gap-6">
-        <div className="col-span-2">
-          <div className="bg-white rounded-xl shadow-sm border p-4">
-            <Tabs defaultValue="techlog" className="w-full">
-              <TabsList className="w-full justify-start">
-                <TabsTrigger value="techlog">Tech Log</TabsTrigger>
-                <TabsTrigger value="history">History</TabsTrigger>
-              </TabsList>
-              <TabsContent value="techlog" className="pt-4">
-                <div className="text-sm text-gray-500">Tech log information will be displayed here</div>
-              </TabsContent>
-              <TabsContent value="history" className="pt-4">
-                <div className="text-sm text-gray-500">Flight history will be displayed here</div>
-              </TabsContent>
-            </Tabs>
+                {booking.lesson && (
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-gray-500">Lesson</label>
+                    <p className="text-lg font-medium">{booking.lesson.name}</p>
+                  </div>
+                )}
+
+                <div className="col-span-2">
+                  <label className="text-sm font-medium text-gray-500">Description</label>
+                  <Textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="Enter flight details or notes"
+                    className="mt-2 min-h-[100px]"
+                  />
+                </div>
+              </div>
+
+              {/* Flight Planning Section */}
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-500">Expected Time of Arrival</label>
+                  <Input
+                    type="time"
+                    value={formData.eta}
+                    onChange={(e) => setFormData(prev => ({ ...prev, eta: e.target.value }))}
+                    className="w-full"
+                    required
+                  />
+                  <p className="text-xs text-gray-500">Please enter the expected return time</p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-500">Route</label>
+                  <Input
+                    value={formData.route}
+                    onChange={(e) => setFormData(prev => ({ ...prev, route: e.target.value }))}
+                    placeholder="e.g., NZWN - NZPP - NZWN"
+                    className="w-full"
+                  />
+                  <p className="text-xs text-gray-500">Enter the planned route</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-        <div className="col-span-1 flex items-end">
-          <div className="bg-white rounded-xl shadow-sm border p-4 w-full">
-            <div className="flex justify-end gap-3">
-              <Button 
-                variant="outline"
-                onClick={() => navigate('/')}
-              >
-                Cancel
-              </Button>
-              <Button 
-                className="bg-blue-600 hover:bg-blue-700 px-8"
-                onClick={handleCheckIn}
-              >
-                Check Out Flight
-              </Button>
+
+        {/* Right Column - Alerts */}
+        <div className="space-y-6">
+          <div className="bg-white rounded-xl shadow-sm border p-6">
+            <div className="flex items-center gap-2 mb-6">
+              <div className="w-1 h-6 bg-yellow-500 rounded-full"></div>
+              <h2 className="text-lg font-semibold">Alerts</h2>
+            </div>
+            
+            <div className="space-y-4">
+              {!alertsLoading && alerts.map((alert) => (
+                <div 
+                  key={alert.id}
+                  className={cn(
+                    "p-4 rounded-lg flex items-start gap-3",
+                    alert.type === 'error' && "bg-red-50 text-red-700",
+                    alert.type === 'warning' && "bg-yellow-50 text-yellow-700",
+                    alert.type === 'info' && "bg-blue-50 text-blue-700"
+                  )}
+                >
+                  <AlertTriangle className="h-5 w-5 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm">{alert.message}</p>
+                </div>
+              ))}
+              
+              {/* Aircraft Defects Section */}
+              {defectsLoading ? (
+                <div className="text-sm text-gray-500 text-center py-4">
+                  Loading defects...
+                </div>
+              ) : (
+                <>
+                  {defects && defects.length > 0 ? (
+                    <div className="mt-6">
+                      <h3 className="text-sm font-medium text-red-800 mb-3">
+                        Aircraft Defects ({defects.length})
+                      </h3>
+                      <div className="overflow-hidden rounded-lg border border-red-100">
+                        <table className="min-w-full divide-y divide-red-100">
+                          <thead className="bg-red-50">
+                            <tr>
+                              <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-red-900">
+                                Defect
+                              </th>
+                              <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-red-900">
+                                Reported
+                              </th>
+                              <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-red-900">
+                                Status
+                              </th>
+                              <th scope="col" className="px-3 py-2 text-right text-xs font-medium text-red-900">
+                                Action
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-red-100 bg-white">
+                            {defects.map((defect) => (
+                              <tr key={defect.id} className="text-xs">
+                                <td className="whitespace-nowrap px-3 py-2 text-red-900">
+                                  {defect.name}
+                                </td>
+                                <td className="whitespace-nowrap px-3 py-2 text-red-900">
+                                  {format(new Date(defect.reported_date), 'dd MMM yyyy')}
+                                </td>
+                                <td className="whitespace-nowrap px-3 py-2">
+                                  <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">
+                                    {defect.status}
+                                  </span>
+                                </td>
+                                <td className="whitespace-nowrap px-3 py-2 text-right">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-auto px-2 py-1 text-xs text-red-600 hover:text-red-800 hover:bg-red-50"
+                                    onClick={() => handleViewDefect(defect.id)}
+                                  >
+                                    View
+                                  </Button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-500 text-center py-4">
+                      No defects found for this aircraft
+                    </div>
+                  )}
+                </>
+              )}
+              
+              {!alertsLoading && !defectsLoading && alerts.length === 0 && (!defects || defects.length === 0) && (
+                <div className="text-sm text-gray-500 text-center py-4">
+                  No alerts to display
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Action Buttons */}
+      <div className="flex justify-end gap-4 mt-6">
+        <Button
+          variant="outline"
+          onClick={() => navigate(`/bookings/${booking.id}`)}
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={handleCheckout}
+          className="bg-blue-600 hover:bg-blue-700 px-8"
+        >
+          Check Out Flight
+        </Button>
+      </div>
+
+      {/* Edit Booking Modal */}
+      {booking && (
+        <EditBookingModal
+          booking={booking}
+          open={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+        />
+      )}
+
+      {selectedDefect && (
+        <DefectModal
+          defect={selectedDefect}
+          isOpen={!!selectedDefect}
+          onClose={() => setSelectedDefect(null)}
+          onStatusChange={(newStatus) => {
+            // Optionally handle status changes
+            // This will refresh the defects list automatically via React Query
+          }}
+        />
+      )}
     </div>
   )
 }

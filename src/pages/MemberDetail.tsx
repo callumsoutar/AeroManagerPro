@@ -17,23 +17,22 @@ import { ProgressTab } from '../components/student/ProgressTab'
 import { InstructorCommentsTab } from "../components/member/InstructorCommentsTab"
 import { getFullName } from '../lib/utils'
 import { EditMemberModal } from "../components/member/EditMemberModal"
-import { CheckCircle2, XCircle, Plus } from 'lucide-react'
+import { 
+  MoreHorizontal, 
+  CheckCircle2, 
+  XCircle, 
+  Plus 
+} from 'lucide-react'
 import { AddMembershipModal } from "../components/member/AddMembershipModal"
 import { EditPilotDetailsModal } from "../components/member/EditPilotDetailsModal"
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
-import { toast } from 'sonner'
-
-interface ErrorResponse {
-  message: string;
-}
-
-interface SupabaseError {
-  message: string;
-  details?: string;
-  hint?: string;
-  code?: string;
-}
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../components/ui/dropdown-menu"
 
 interface Booking {
   id: string;
@@ -75,6 +74,7 @@ const MemberDetail = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isAddMembershipModalOpen, setIsAddMembershipModalOpen] = useState(false)
   const [isEditPilotModalOpen, setIsEditPilotModalOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState('contact')
 
   console.log('User Data:', user)
 
@@ -171,9 +171,9 @@ const MemberDetail = () => {
   const previousMemberships = user.previousMemberships || []
 
   return (
-    <div className="min-h-screen bg-gray-50/30">
+    <div className="min-h-screen bg-gray-50/30 relative">
       {/* Header Section */}
-      <div className="bg-white border-b">
+      <div className="bg-white border-b ml-[240px]">
         <div className="max-w-7xl mx-auto p-6">
           <div className="flex items-center gap-4">
             <div className="relative group">
@@ -197,11 +197,11 @@ const MemberDetail = () => {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="max-w-7xl mx-auto p-6 ml-[240px]">
         <div className="flex gap-6">
           {/* Sidebar */}
           <div className="w-64 shrink-0">
-            <div className="bg-white p-6 rounded-lg shadow-sm border space-y-6 sticky top-6">
+            <div className="bg-white p-6 rounded-lg shadow-sm border space-y-6 sticky top-6 max-w-[16rem]">
               <div>
                 <h3 className="text-sm font-medium text-gray-500 mb-2">Status</h3>
                 <Badge
@@ -230,23 +230,44 @@ const MemberDetail = () => {
           </div>
 
           {/* Main Content Area */}
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <div className="bg-white rounded-lg shadow-sm border">
-              <Tabs defaultValue="contact">
-                <TabsList className="w-full px-4 flex justify-start space-x-2 border-b">
-                  <TabsTrigger value="contact">Contact Details</TabsTrigger>
-                  <TabsTrigger value="membership">Membership Details</TabsTrigger>
-                  <TabsTrigger value="pilot">Pilot Details</TabsTrigger>
-                  <TabsTrigger value="account">Account</TabsTrigger>
-                  <TabsTrigger value="bookings">Bookings</TabsTrigger>
-                  <TabsTrigger value="history">Flight History</TabsTrigger>
-                  <TabsTrigger value="comments">Instructor Comments</TabsTrigger>
-                  <TabsTrigger value="progress">Progress</TabsTrigger>
-                  <TabsTrigger value="permissions">Permissions</TabsTrigger>
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <TabsList className="w-full px-4 flex justify-between items-center border-b">
+                  <div className="flex space-x-1 py-2">
+                    {/* Primary Tabs */}
+                    <TabsTrigger value="contact" className="shrink-0">Contact Details</TabsTrigger>
+                    <TabsTrigger value="membership" className="shrink-0">Membership Details</TabsTrigger>
+                    <TabsTrigger value="pilot" className="shrink-0">Pilot Details</TabsTrigger>
+                    <TabsTrigger value="bookings" className="shrink-0">Bookings</TabsTrigger>
+                    <TabsTrigger value="history" className="shrink-0">Flight History</TabsTrigger>
+                    
+                    {/* More Options Dropdown */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-9 px-2 hover:bg-gray-100">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-[200px]">
+                        <DropdownMenuItem onClick={() => setActiveTab("account")}>
+                          Account
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setActiveTab("comments")}>
+                          Instructor Comments
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setActiveTab("progress")}>
+                          Progress
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setActiveTab("permissions")}>
+                          Permissions
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </TabsList>
 
                 <div className="p-6">
-                  {/* Contact Details Tab */}
                   <TabsContent value="contact">
                     <div className="space-y-6">
                       {/* Personal Information - Full Width */}
@@ -352,7 +373,6 @@ const MemberDetail = () => {
                     </div>
                   </TabsContent>
 
-                  {/* Membership Details Tab */}
                   <TabsContent value="membership">
                     <div className="space-y-6">
                       {/* Current Membership */}
@@ -494,7 +514,6 @@ const MemberDetail = () => {
                     </div>
                   </TabsContent>
 
-                  {/* Pilot Details Tab */}
                   <TabsContent value="pilot">
                     <div className="space-y-6">
                       {/* Top Row: License and Medical Info */}
@@ -634,7 +653,6 @@ const MemberDetail = () => {
                     </div>
                   </TabsContent>
 
-                  {/* Bookings Tab */}
                   <TabsContent value="bookings">
                     <div className="space-y-6">
                       <div>
@@ -702,7 +720,6 @@ const MemberDetail = () => {
                     </div>
                   </TabsContent>
 
-                  {/* Other tabs can be implemented similarly */}
                   <TabsContent value="history">
                     <div className="space-y-6">
                       <div>

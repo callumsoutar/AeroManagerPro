@@ -5,7 +5,6 @@ import { Badge } from "../components/ui/badge"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs"
 import { format } from 'date-fns'
 import { FileEdit, CheckCircle2, FileText } from 'lucide-react'
-import { cn } from "../lib/utils"
 import { useBooking } from '../hooks/useBooking'
 import { getFullName } from '../lib/utils'
 import { EditBookingModal } from "../components/modals/EditBookingModal"
@@ -17,7 +16,6 @@ const BookingDetail = () => {
   const { id } = useParams<{ id: string }>()
   const { data: booking, isLoading } = useBooking(id!)
   const navigate = useNavigate()
-  const [isEditing, setIsEditing] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
   const { data: invoices } = useQuery({
@@ -77,49 +75,36 @@ const BookingDetail = () => {
     }).format(amount)
   }
 
-  const handleEditClick = () => {
-    setIsEditModalOpen(true)
-  }
-
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      {/* Header Section */}
-      <div className="flex justify-between items-start mb-8">
+      <div className="flex justify-between items-center mb-8">
         <div>
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-3xl font-bold text-gray-900">
-              {booking.aircraft?.registration}
-            </h1>
-            <Badge className={getStatusColor(booking.status)}>
+          <div className="flex items-center gap-4 mb-1">
+            <h1 className="text-3xl font-bold text-gray-900">Booking Details</h1>
+            <Badge className={`text-base px-3 py-1 ${getStatusColor(booking.status)}`}>
               {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
             </Badge>
-            <Button 
-              variant="outline" 
-              size="sm"
-              className="flex items-center gap-2"
-              onClick={handleEditClick}
-            >
-              <FileEdit className="h-4 w-4" />
-              Edit Booking
-            </Button>
           </div>
-          <div className="text-gray-500">
-            <button
-              type="button"
-              onClick={() => navigate(`/members/${booking.user_id}`)}
-              className={cn(
-                "p-0 h-auto font-normal text-blue-600 hover:text-blue-800",
-                "hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2",
-                "rounded"
-              )}
-            >
-              {booking.user ? getFullName(booking.user.first_name, booking.user.last_name) : 'Unknown Member'}
-            </button>
-          </div>
+          <p className="text-gray-500">
+            {booking.aircraft?.registration} • {format(new Date(booking.start_time), 'dd MMM yyyy')}
+          </p>
         </div>
-        <Link to="/" className="text-gray-600 hover:text-gray-900">
-          ← Back to Dashboard
-        </Link>
+        <div className="flex items-center gap-4">
+          <Button
+            variant="outline"
+            onClick={() => setIsEditModalOpen(true)}
+            className="gap-2"
+          >
+            <FileEdit className="h-4 w-4" />
+            Edit Booking
+          </Button>
+          <Link 
+            to="/"
+            className="text-sm text-gray-600 hover:text-blue-600"
+          >
+            ← Back to Dashboard
+          </Link>
+        </div>
       </div>
 
       {/* Main Content */}
@@ -428,34 +413,23 @@ const BookingDetail = () => {
         {/* Action Buttons */}
         <div className="border-t p-6">
           <div className="flex justify-end gap-4">
-            {isEditing && (
-              <Button 
-                className="bg-blue-600 hover:bg-blue-700 px-8"
-                onClick={() => {
-                  setIsEditing(false)
-                  // Save changes logic here
-                }}
-              >
-                <CheckCircle2 className="h-4 w-4 mr-2" />
-                Save Changes
-              </Button>
-            )}
-            
-            {booking.status === 'confirmed' && !isEditing && (
+            {booking.status === 'confirmed' && (
               <Button 
                 className="bg-blue-600 hover:bg-blue-700 px-8"
                 onClick={() => navigate(`/bookings/${booking.id}/checkout`)}
               >
-                Check Flight Out
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+                Check Out Flight
               </Button>
             )}
             
-            {booking.status === 'flying' && !isEditing && (
+            {booking.status === 'flying' && (
               <Button 
                 className="bg-green-600 hover:bg-green-700 px-8"
                 onClick={() => navigate(`/bookings/${booking.id}/flight-details`)}
               >
-                Check In Flight
+                <FileText className="h-4 w-4 mr-2" />
+                Complete Flight Details
               </Button>
             )}
           </div>

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useParams } from 'react-router-dom';
 import Sidebar from './components/layout/Sidebar';
 import Members from './pages/Members';
 import MemberDetail from './pages/MemberDetail';
@@ -17,8 +17,22 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import FlightCheckIn from './pages/FlightCheckIn';
 import Invoices from './pages/Invoices';
 import InvoiceDetails from './pages/InvoiceDetails';
+import { Toaster } from 'sonner';
+import { ConfirmedBookingGuard } from './components/ConfirmedBookingGuard';
 
 const queryClient = new QueryClient();
+
+const CheckoutRoute = () => {
+  const { id } = useParams<{ id: string }>();
+  
+  if (!id) return null;
+
+  return (
+    <ConfirmedBookingGuard bookingId={id}>
+      <CheckoutBooking />
+    </ConfirmedBookingGuard>
+  );
+};
 
 const App: React.FC = () => {
   return (
@@ -31,7 +45,7 @@ const App: React.FC = () => {
               <Route path="/" element={<AdminDashboard />} />
               <Route path="/bookings/:id" element={<BookingDetail />} />
               <Route path="/bookings/:id/edit" element={<BookingDetail />} />
-              <Route path="/bookings/:id/checkout" element={<CheckoutBooking />} />
+              <Route path="/bookings/:id/checkout" element={<CheckoutRoute />} />
               <Route path="/bookings/:id/check-in" element={<FlightCheckIn />} />
               <Route path="/bookings/:id/flight-details" element={<FlightDetailsPage />} />
               <Route path="/aircraft" element={<AircraftPage />} />
@@ -44,10 +58,10 @@ const App: React.FC = () => {
               <Route path="/bookings" element={<Bookings />} />
               <Route path="/invoices" element={<Invoices />} />
               <Route path="/invoices/:id" element={<InvoiceDetails />} />
-            
             </Routes>
           </main>
         </div>
+        <Toaster position="top-right" />
       </Router>
     </QueryClientProvider>
   );
