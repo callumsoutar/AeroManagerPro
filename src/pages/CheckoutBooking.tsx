@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useBooking } from '../hooks/useBooking'
 import { Button } from "../components/ui/button"
@@ -483,7 +483,7 @@ const CheckoutBooking = () => {
           defect={selectedDefect}
           isOpen={!!selectedDefect}
           onClose={() => setSelectedDefect(null)}
-          onStatusChange={(newStatus) => {
+          onStatusChange={() => {
             // Optionally handle status changes
             // This will refresh the defects list automatically via React Query
           }}

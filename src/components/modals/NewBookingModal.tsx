@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "../ui/select"
 import { Input } from "../ui/input"
+import { toast } from 'sonner'
 
 interface NewBookingModalProps {
   open: boolean
@@ -229,9 +230,11 @@ export function NewBookingModal({ open, onClose }: NewBookingModalProps) {
 
       console.log('Booking created:', data)
       queryClient.invalidateQueries({ queryKey: ['bookings'] })
+      toast.success('Booking successfully created')
       onClose()
     } catch (error) {
       console.error('Error in handleMemberBookingSubmit:', error)
+      toast.error('Failed to create booking')
     } finally {
       setIsLoading(false)
     }
@@ -272,9 +275,11 @@ export function NewBookingModal({ open, onClose }: NewBookingModalProps) {
       if (error) throw error
 
       queryClient.invalidateQueries({ queryKey: ['bookings'] })
+      toast.success('Booking successfully created')
       onClose()
     } catch (error) {
       console.error('Error creating trial booking:', error)
+      toast.error('Failed to create trial booking')
     } finally {
       setIsLoading(false)
     }

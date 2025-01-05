@@ -1,72 +1,51 @@
-export interface FlightPoint {
-  timestamp: string;
-  latitude: number;
-  longitude: number;
-  altitude: number;
+export interface FlightTrackData {
+  fr24_id: string
+  lat: number
+  lon: number
+  track: number
+  alt: number
+  gspeed: number
+  vspeed: number
+  squawk: string
+  timestamp: string
+  source: string
+  hex: string
+  type: string
+  reg: string
 }
 
-export const flightTrackData: FlightPoint[] = [
-  { "timestamp": "2024-12-26T14:19:12Z", "latitude": -40.9081, "longitude": 174.9878, "altitude": 82 },
-  { "timestamp": "2024-12-26T14:19:28Z", "latitude": -40.9134, "longitude": 174.9874, "altitude": 83 },
-  { "timestamp": "2024-12-26T14:19:44Z", "latitude": -40.9190, "longitude": 174.9868, "altitude": 89 },
-  { "timestamp": "2024-12-26T14:20:00Z", "latitude": -40.9247, "longitude": 174.9853, "altitude": 91 },
-  { "timestamp": "2024-12-26T14:20:16Z", "latitude": -40.9262, "longitude": 174.9786, "altitude": 92 },
-  { "timestamp": "2024-12-26T14:20:32Z", "latitude": -40.9256, "longitude": 174.9711, "altitude": 90 },
-  { "timestamp": "2024-12-26T14:20:48Z", "latitude": -40.9221, "longitude": 174.9662, "altitude": 84 },
-  { "timestamp": "2024-12-26T14:21:06Z", "latitude": -40.9162, "longitude": 174.9689, "altitude": 82 },
-  { "timestamp": "2024-12-26T14:21:22Z", "latitude": -40.9122, "longitude": 174.9730, "altitude": 85 },
-  { "timestamp": "2024-12-26T14:21:38Z", "latitude": -40.9084, "longitude": 174.9781, "altitude": 81 },
-  { "timestamp": "2024-12-26T14:21:55Z", "latitude": -40.9053, "longitude": 174.9836, "altitude": 77 },
-  { "timestamp": "2024-12-26T14:22:11Z", "latitude": -40.9018, "longitude": 174.9890, "altitude": 83 },
-  { "timestamp": "2024-12-26T14:22:27Z", "latitude": -40.8981, "longitude": 174.9946, "altitude": 87 },
-  { "timestamp": "2024-12-26T14:22:43Z", "latitude": -40.8946, "longitude": 174.9994, "altitude": 84 },
-  { "timestamp": "2024-12-26T14:22:59Z", "latitude": -40.8901, "longitude": 175.0048, "altitude": 100 },
-  { "timestamp": "2024-12-26T14:23:15Z", "latitude": -40.8848, "longitude": 175.0101, "altitude": 101 },
-  { "timestamp": "2024-12-26T14:23:31Z", "latitude": -40.8790, "longitude": 175.0138, "altitude": 104 },
-  { "timestamp": "2024-12-26T14:23:47Z", "latitude": -40.8737, "longitude": 175.0192, "altitude": 101 },
-  { "timestamp": "2024-12-26T14:24:03Z", "latitude": -40.8685, "longitude": 175.0238, "altitude": 90 },
-  { "timestamp": "2024-12-26T14:24:19Z", "latitude": -40.8644, "longitude": 175.0277, "altitude": 98 },
-  { "timestamp": "2024-12-26T14:24:36Z", "latitude": -40.8584, "longitude": 175.0328, "altitude": 99 },
-  { "timestamp": "2024-12-26T14:24:52Z", "latitude": -40.8525, "longitude": 175.0353, "altitude": 94 },
-  { "timestamp": "2024-12-26T14:25:09Z", "latitude": -40.8466, "longitude": 175.0355, "altitude": 93 },
-  { "timestamp": "2024-12-26T14:25:26Z", "latitude": -40.8407, "longitude": 175.0377, "altitude": 70 },
-  { "timestamp": "2024-12-26T14:25:47Z", "latitude": -40.8358, "longitude": 175.0394, "altitude": 2225 },
-  { "timestamp": "2024-12-26T14:26:19Z", "latitude": -40.8267, "longitude": 175.0434, "altitude": 2050 },
-  { "timestamp": "2024-12-26T14:26:41Z", "latitude": -40.8210, "longitude": 175.0465, "altitude": 2000 },
-  { "timestamp": "2024-12-26T14:27:07Z", "latitude": -40.8141, "longitude": 175.0512, "altitude": 2275 },
-  { "timestamp": "2024-12-26T14:27:38Z", "latitude": -40.8056, "longitude": 175.0568, "altitude": 2425 },
-  { "timestamp": "2024-12-26T14:27:54Z", "latitude": -40.8011, "longitude": 175.0598, "altitude": 2350 },
-  { "timestamp": "2024-12-26T14:28:27Z", "latitude": -40.7923, "longitude": 175.0657, "altitude": 2150 },
-  { "timestamp": "2024-12-26T14:28:57Z", "latitude": -40.7823, "longitude": 175.0723, "altitude": 2100 },
-  { "timestamp": "2024-12-26T14:29:27Z", "latitude": -40.7725, "longitude": 175.0789, "altitude": 2125 },
-  { "timestamp": "2024-12-26T14:29:43Z", "latitude": -40.7676, "longitude": 175.0824, "altitude": 2150 },
-  { "timestamp": "2024-12-26T14:30:13Z", "latitude": -40.7595, "longitude": 175.0886, "altitude": 2425 },
-  { "timestamp": "2024-12-26T14:30:33Z", "latitude": -40.7537, "longitude": 175.0926, "altitude": 2475 },
-  { "timestamp": "2024-12-26T14:30:49Z", "latitude": -40.7480, "longitude": 175.0960, "altitude": 2450 },
-  { "timestamp": "2024-12-26T14:31:07Z", "latitude": -40.7416, "longitude": 175.0949, "altitude": 2400 },
-  { "timestamp": "2024-12-26T14:31:25Z", "latitude": -40.7426, "longitude": 175.0853, "altitude": 2400 },
-  { "timestamp": "2024-12-26T14:31:46Z", "latitude": -40.7501, "longitude": 175.0791, "altitude": 2400 },
-  { "timestamp": "2024-12-26T14:32:16Z", "latitude": -40.7604, "longitude": 175.0719, "altitude": 2350 },
-  { "timestamp": "2024-12-26T14:32:46Z", "latitude": -40.7702, "longitude": 175.0664, "altitude": 2325 },
-  { "timestamp": "2024-12-26T14:33:05Z", "latitude": -40.7770, "longitude": 175.0628, "altitude": 2300 },
-  { "timestamp": "2024-12-26T14:33:33Z", "latitude": -40.7867, "longitude": 175.0565, "altitude": 2175 },
-  { "timestamp": "2024-12-26T14:34:03Z", "latitude": -40.7977, "longitude": 175.0485, "altitude": 1925 },
-  { "timestamp": "2024-12-26T14:34:33Z", "latitude": -40.8082, "longitude": 175.0406, "altitude": 1700 },
-  { "timestamp": "2024-12-26T14:34:52Z", "latitude": -40.8143, "longitude": 175.0359, "altitude": 1575 },
-  { "timestamp": "2024-12-26T14:35:17Z", "latitude": -40.8227, "longitude": 175.0293, "altitude": 1450 },
-  { "timestamp": "2024-12-26T14:35:47Z", "latitude": -40.8338, "longitude": 175.0197, "altitude": 1400 },
-  { "timestamp": "2024-12-26T14:35:56Z", "latitude": -40.8368, "longitude": 175.0173, "altitude": 1375 },
-  { "timestamp": "2024-12-26T14:36:04Z", "latitude": -40.8399, "longitude": 175.0148, "altitude": 1375 },
-  { "timestamp": "2024-12-26T14:36:20Z", "latitude": -40.8455, "longitude": 175.0097, "altitude": 1375 },
-  { "timestamp": "2024-12-26T14:36:39Z", "latitude": -40.8521, "longitude": 175.0030, "altitude": 1375 },
-  { "timestamp": "2024-12-26T14:36:55Z", "latitude": -40.8576, "longitude": 174.9971, "altitude": 1350 },
-  { "timestamp": "2024-12-26T14:37:11Z", "latitude": -40.8624, "longitude": 174.9927, "altitude": 1250 },
-  { "timestamp": "2024-12-26T14:37:27Z", "latitude": -40.8678, "longitude": 174.9891, "altitude": 1150 },
-  { "timestamp": "2024-12-26T14:37:43Z", "latitude": -40.8740, "longitude": 174.9879, "altitude": 1025 },
-  { "timestamp": "2024-12-26T14:37:59Z", "latitude": -40.8793, "longitude": 174.9880, "altitude": 925 },
-  { "timestamp": "2024-12-26T14:38:15Z", "latitude": -40.8850, "longitude": 174.9880, "altitude": 825 },
-  { "timestamp": "2024-12-26T14:38:31Z", "latitude": -40.8903, "longitude": 174.9880, "altitude": 725 },
-  { "timestamp": "2024-12-26T14:38:47Z", "latitude": -40.8955, "longitude": 174.9879, "altitude": 600 }
-]
+// Mock responses for our aircraft
+export const mockFlightTrackResponses: Record<string, FlightTrackData> = {
+  'ZK-ELA': {
+    fr24_id: "321a0cc3",
+    lat: -40.78265, // Christchurch area
+    lon: 175.0928,
+    track: 219,
+    alt: 3500,
+    gspeed: 120,
+    vspeed: 0,
+    squawk: "6135",
+    timestamp: new Date().toISOString(), 
+    source: "ADSB",
+    hex: "394C19",
+    type: "C152",
+    reg: "ZK-ELA"
+  },
+  'ZK-FLC': {
+    fr24_id: "321b1dd4",
+    lat: -40.9899, //
+    lon: 174.9173,
+    track: 180,
+    alt: 2500,
+    gspeed: 110,
+    vspeed: -500,
+    squawk: "6136",
+    timestamp: new Date().toISOString(),
+    source: "ADSB",
+    hex: "394C20",
+    type: "C172",
+    reg: "ZK-FLC"
+  }
+}
 
           

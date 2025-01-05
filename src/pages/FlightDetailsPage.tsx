@@ -7,10 +7,9 @@ import { Badge } from "../components/ui/badge"
 import { Input } from "../components/ui/input"
 import { Textarea } from "../components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select"
-import FlightTrackModal from '../components/modals/FlightTrackModal'
-import { MapIcon } from 'lucide-react'
+import { FlightTrackModal } from '../components/modals/FlightTrackModal'
 import DebriefModal from '../components/modals/DebriefModal'
-import { X } from 'lucide-react'
+import { X, Map as MapIcon } from 'lucide-react'
 import { cn, getFullName } from '../lib/utils'
 import { supabase } from '../lib/supabase'
 import { useChargeables } from '../hooks/useChargeables'
@@ -815,8 +814,9 @@ const FlightDetailsPage = () => {
 
       {/* Add the Flight Track Modal */}
       <FlightTrackModal 
-        isOpen={isFlightTrackOpen}
+        open={isFlightTrackOpen}
         onClose={() => setIsFlightTrackOpen(false)}
+        registration={aircraft?.registration}
       />
 
       {/* Add the Debrief Modal */}

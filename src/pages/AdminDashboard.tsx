@@ -1,8 +1,82 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Badge } from "../components/ui/badge"
 import { Link } from 'react-router-dom'
-import { bookings } from '../data/bookings'
-import { Cloud, Wind, Thermometer, Droplets, Gauge } from 'lucide-react'
+import { Cloud, Wind, Thermometer, Droplets, Gauge, Plane, Calendar, AlertTriangle, Clock } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { supabase } from '../lib/supabase'
+import { DefectModal } from '../components/modals/DefectModal'
+
+// First, define types for the nested objects
+interface Aircraft {
+  registration: string
+  type: string
+}
+
+interface User {
+  first_name: string
+  last_name: string
+}
+
+interface Instructor {
+  first_name: string
+  last_name: string
+}
+
+// Update the ActiveFlight interface
+interface ActiveFlight {
+  id: string
+  aircraft_id: string
+  aircraft: Aircraft | null
+  user_id: string
+  user: User | null
+  instructor_id: string | null
+  instructor: Instructor | null
+  checked_out_time: string | null
+  eta: string | null
+  status: string
+}
+
+// Add a new interface for today's bookings
+interface TodayBooking {
+  id: string
+  aircraft_id: string
+  aircraft: Aircraft | null
+  user_id: string
+  user: User | null
+  instructor_id: string | null
+  instructor: Instructor | null
+  description: string | null
+  start_time: string | null
+  end_time: string | null
+  status: string
+}
+
+// First, define the DefectComment interface
+interface DefectComment {
+  text: string
+  user: string
+  timestamp: string
+}
+
+// Simplify the Defect interface to match actual database structure
+interface Defect {
+  id: string
+  aircraft_id: string
+  aircraft: {
+    registration: string
+    type: string
+  } | null
+  description: string
+  status: string
+  reported_date: string
+  name: string
+  reported_by: string
+  reported_by_user: {
+    first_name: string
+    last_name: string
+  }
+  comments: DefectComment[]
+}
 
 const WeatherCard = () => {
   return (
@@ -76,6 +150,8 @@ const WeatherCard = () => {
 }
 
 const AdminDashboard = () => {
+  const queryClient = useQueryClient()
+
   const stats = [
     { 
       label: 'Flights This Week', 
@@ -103,67 +179,252 @@ const AdminDashboard = () => {
     }
   ]
 
-  const todaysBookings = [
-    {
-      id: '1',
-      aircraft: 'C172 - ZK-ABC',
-      member: 'John Smith',
-      startTime: '09:00',
-      endTime: '11:00',
-      type: 'Training',
-      status: 'confirmed'
-    },
-    {
-      id: '2',
-      aircraft: 'PA28 - ZK-XYZ',
-      member: 'Jane Doe',
-      startTime: '11:30',
-      endTime: '13:30',
-      type: 'Private Hire',
-      status: 'confirmed'
-    },
-    {
-      id: '3',
-      aircraft: 'C152 - ZK-DEF',
-      member: 'Mike Johnson',
-      startTime: '14:00',
-      endTime: '15:30',
-      type: 'Check Flight',
-      status: 'confirmed'
-    }
-  ]
+  const { data: defects = [] } = useQuery<Defect[]>({
+    queryKey: ['defects'],
+    queryFn: async () => {
+      console.log('Fetching defects...')
 
-  const currentDefects = [
-    {
-      id: '1',
-      aircraft: 'C172 - ZK-ABC',
-      description: 'Oil pressure gauge showing intermittent readings',
-      status: 'Open',
-      reportedDate: '2024-03-25'
-    },
-    {
-      id: '2',
-      aircraft: 'PA28 - ZK-XYZ',
-      description: 'Right main tire showing excessive wear',
-      status: 'In Progress',
-      reportedDate: '2024-03-24'
-    },
-    {
-      id: '3',
-      aircraft: 'C152 - ZK-DEF',
-      description: 'Annual inspection due in 5 days',
-      status: 'Open',
-      reportedDate: '2024-03-23'
-    }
-  ]
+      const { data, error } = await supabase
+        .from('defects')
+        .select(`
+          id,
+          name,
+          aircraft_id,
+          aircraft:aircraft_id (
+            registration,
+            type
+          ),
+          description,
+          status,
+          reported_date,
+          reported_by,
+          reported_by_user:reported_by (
+            first_name,
+            last_name
+          ),
+          comments
+        `)
+        .order('reported_date', { ascending: false })
 
-  const activeFlights = bookings.filter(booking => booking.status === 'flying')
+      console.log('Defects raw response:', { data, error })
+
+      if (error) {
+        console.error('Error fetching defects:', error)
+        throw error
+      }
+
+      const transformedData = (data || []).map((defect: any) => ({
+        id: defect.id,
+        name: defect.name || `Defect Report`,
+        aircraft_id: defect.aircraft_id,
+        aircraft: defect.aircraft,
+        description: defect.description,
+        status: defect.status,
+        reported_date: defect.reported_date,
+        reported_by: defect.reported_by,
+        reported_by_user: defect.reported_by_user || {
+          first_name: 'Unknown',
+          last_name: 'User'
+        },
+        comments: Array.isArray(defect.comments) ? defect.comments : []
+      }))
+
+      console.log('Transformed defects:', transformedData)
+      return transformedData
+    }
+  })
+
+  const [selectedDefect, setSelectedDefect] = useState<Defect | null>(null)
+  const [isDefectModalOpen, setIsDefectModalOpen] = useState(false)
+
+  const handleDefectClick = (defect: Defect) => {
+    setSelectedDefect(defect)
+    setIsDefectModalOpen(true)
+  }
+
+  const { data: activeFlights = [] } = useQuery<ActiveFlight[]>({
+    queryKey: ['active-flights'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('bookings')
+        .select(`
+          id,
+          aircraft_id,
+          aircraft:aircraft_id (
+            registration,
+            type
+          ),
+          user_id,
+          user:user_id (
+            first_name,
+            last_name
+          ),
+          instructor_id,
+          instructor:instructor_id (
+            first_name,
+            last_name
+          ),
+          checked_out_time,
+          eta,
+          status
+        `)
+        .eq('status', 'flying')
+        .order('checked_out_time', { ascending: false })
+
+      if (error) throw error
+
+      // Add console.log to debug the raw response
+      console.log('Raw Supabase response:', data)
+      
+      // Transform the data correctly - Supabase returns nested objects directly
+      const transformedData: ActiveFlight[] = (data || []).map((booking: any) => ({
+        id: booking.id,
+        aircraft_id: booking.aircraft_id,
+        aircraft: booking.aircraft || null, // Remove the [0] index access
+        user_id: booking.user_id,
+        user: booking.user || null, // Remove the [0] index access
+        instructor_id: booking.instructor_id,
+        instructor: booking.instructor || null, // Remove the [0] index access
+        checked_out_time: booking.checked_out_time,
+        eta: booking.eta,
+        status: booking.status
+      }))
+
+      // Add console.log to debug the transformed data
+      console.log('Transformed data:', transformedData)
+
+      return transformedData
+    }
+  })
+
+  const { data: todaysBookings = [] } = useQuery<TodayBooking[]>({
+    queryKey: ['todays-bookings'],
+    queryFn: async () => {
+      // Get today's date in local timezone
+      const today = new Date()
+      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)
+
+      // Add console.log to debug date ranges
+      console.log('Querying bookings between:', {
+        start: startOfDay.toISOString(),
+        end: endOfDay.toISOString()
+      })
+
+      const { data, error } = await supabase
+        .from('bookings')
+        .select(`
+          id,
+          aircraft_id,
+          aircraft:aircraft_id (
+            registration,
+            type
+          ),
+          user_id,
+          user:user_id (
+            first_name,
+            last_name
+          ),
+          instructor_id,
+          instructor:instructor_id (
+            first_name,
+            last_name
+          ),
+          description,
+          start_time,
+          end_time,
+          status
+        `)
+        .gte('start_time', startOfDay.toISOString())
+        .lt('start_time', endOfDay.toISOString())
+        .not('status', 'eq', 'flying')
+        .order('start_time', { ascending: true })
+
+      if (error) {
+        console.error('Error fetching today\'s bookings:', error)
+        throw error
+      }
+
+      // Debug the raw response
+      console.log('Raw bookings data:', data)
+
+      const transformedData: TodayBooking[] = (data || []).map((booking: any) => ({
+        id: booking.id,
+        aircraft_id: booking.aircraft_id,
+        aircraft: booking.aircraft || null,
+        user_id: booking.user_id,
+        user: booking.user || null,
+        instructor_id: booking.instructor_id,
+        instructor: booking.instructor || null,
+        description: booking.description,
+        start_time: booking.start_time,
+        end_time: booking.end_time,
+        status: booking.status
+      }))
+
+      // Debug the transformed data
+      console.log('Transformed bookings data:', transformedData)
+
+      return transformedData
+    },
+    // Add refetch interval to keep the data fresh
+    refetchInterval: 30000 // Refetch every 30 seconds
+  })
+
+  // Add a new query for unconfirmed bookings
+  const { data: unconfirmedBookings = [] } = useQuery<TodayBooking[]>({
+    queryKey: ['unconfirmed-bookings'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('bookings')
+        .select(`
+          id,
+          aircraft_id,
+          aircraft:aircraft_id (
+            registration,
+            type
+          ),
+          user_id,
+          user:user_id (
+            first_name,
+            last_name
+          ),
+          instructor_id,
+          instructor:instructor_id (
+            first_name,
+            last_name
+          ),
+          description,
+          start_time,
+          end_time,
+          status
+        `)
+        .eq('status', 'unconfirmed')
+        .order('start_time', { ascending: true })
+
+      if (error) throw error
+      
+      return (data || []).map((booking: any) => ({
+        id: booking.id,
+        aircraft_id: booking.aircraft_id,
+        aircraft: booking.aircraft,
+        user_id: booking.user_id,
+        user: booking.user,
+        instructor_id: booking.instructor_id,
+        instructor: booking.instructor,
+        description: booking.description,
+        start_time: booking.start_time,
+        end_time: booking.end_time,
+        status: booking.status
+      }))
+    }
+  })
 
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
 
-      {/* Stats Grid - Moved to top */}
+      {/* Stats Grid */}
       <div className="grid grid-cols-4 gap-4 mb-6">
         {stats.map((stat, index) => (
           <div 
@@ -196,7 +457,10 @@ const AdminDashboard = () => {
         <div className="w-2/3 space-y-6">
           {/* Active Flights Table */}
           <div className="bg-white rounded-lg shadow p-4">
-            <h2 className="text-lg font-semibold mb-4">Active Flights</h2>
+            <div className="flex items-center gap-2 mb-4">
+              <Plane className="h-5 w-5 text-blue-600" />
+              <h2 className="text-lg font-semibold">Active Flights</h2>
+            </div>
             <table className="w-full">
               <thead>
                 <tr className="text-left">
@@ -209,13 +473,41 @@ const AdminDashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {activeFlights.map((flight) => (
+                {activeFlights.map((flight: ActiveFlight) => (
                   <tr key={flight.id} className="border-t">
-                    <td className="py-2">{flight.aircraft}</td>
-                    <td className="py-2">{flight.member}</td>
-                    <td className="py-2">{flight.instructor || '-'}</td>
-                    <td className="py-2">{flight.checkedOutTime}</td>
-                    <td className="py-2">{flight.eta}</td>
+                    <td className="py-2">
+                      {flight.aircraft?.registration || '-'}
+                    </td>
+                    <td className="py-2">
+                      {flight.user ? 
+                        `${flight.user.first_name} ${flight.user.last_name}` : 
+                        '-'
+                      }
+                    </td>
+                    <td className="py-2">
+                      {flight.instructor ? 
+                        `${flight.instructor.first_name} ${flight.instructor.last_name}` : 
+                        '-'
+                      }
+                    </td>
+                    <td className="py-2">
+                      {flight.checked_out_time ? 
+                        new Date(flight.checked_out_time).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        }) : 
+                        '-'
+                      }
+                    </td>
+                    <td className="py-2">
+                      {flight.eta ? 
+                        new Date(flight.eta).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        }) : 
+                        '-'
+                      }
+                    </td>
                     <td className="py-2">
                       <div className="space-x-2">
                         <Link 
@@ -238,46 +530,154 @@ const AdminDashboard = () => {
             </table>
           </div>
 
-          {/* Today's Bookings Table */}
+          {/* Add Today's Bookings Table */}
           <div className="bg-white rounded-lg shadow p-4">
-            <h2 className="text-lg font-semibold mb-4">Today's Bookings</h2>
+            <div className="flex items-center gap-2 mb-4">
+              <Calendar className="h-5 w-5 text-indigo-600" />
+              <h2 className="text-lg font-semibold">Today's Bookings</h2>
+            </div>
             <table className="w-full">
               <thead>
                 <tr className="text-left">
                   <th className="pb-2">Aircraft</th>
                   <th className="pb-2">Member</th>
-                  <th className="pb-2">Time</th>
-                  <th className="pb-2">Type</th>
+                  <th className="pb-2">Instructor</th>
+                  <th className="pb-2">Description</th>
+                  <th className="pb-2">Times</th>
                   <th className="pb-2">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {todaysBookings.map((booking) => (
-                  <tr key={booking.id} className="border-t">
-                    <td className="py-2">{booking.aircraft}</td>
-                    <td className="py-2">{booking.member}</td>
-                    <td className="py-2">{`${booking.startTime} - ${booking.endTime}`}</td>
-                    <td className="py-2">
-                      <Badge variant={
-                        booking.type === 'Training' ? 'default' :
-                        booking.type === 'Check Flight' ? 'destructive' :
-                        'secondary'
-                      }>
-                        {booking.type}
-                      </Badge>
-                    </td>
-                    <td className="py-2">
-                      {booking.status !== 'flying' && (
-                        <Link 
-                          to={`/bookings/${booking.id}/checkout`}
-                          className="text-blue-600 hover:text-blue-800 text-sm"
-                        >
-                          Check Out
-                        </Link>
-                      )}
+                {todaysBookings.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-4 text-center text-gray-500">
+                      No bookings scheduled for today
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  todaysBookings.map((booking: TodayBooking) => (
+                    <tr key={booking.id} className="border-t">
+                      <td className="py-2">
+                        {booking.aircraft?.registration || '-'}
+                      </td>
+                      <td className="py-2">
+                        {booking.user ? 
+                          `${booking.user.first_name} ${booking.user.last_name}` : 
+                          '-'
+                        }
+                      </td>
+                      <td className="py-2">
+                        {booking.instructor ? 
+                          `${booking.instructor.first_name} ${booking.instructor.last_name}` : 
+                          '-'
+                        }
+                      </td>
+                      <td className="py-2">
+                        {booking.description || '-'}
+                      </td>
+                      <td className="py-2">
+                        {booking.start_time ? 
+                          `${new Date(booking.start_time).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })} - ${new Date(booking.end_time || '').toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}` : 
+                          '-'
+                        }
+                      </td>
+                      <td className="py-2">
+                        <div className="space-x-2">
+                          <Link 
+                            to={`/bookings/${booking.id}`}
+                            className="text-blue-600 hover:text-blue-800 text-sm"
+                          >
+                            Edit
+                          </Link>
+                          <Link 
+                            to={`/bookings/${booking.id}/checkout`}
+                            className="text-green-600 hover:text-green-800 text-sm"
+                          >
+                            Check Out
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Add Requested Bookings Table */}
+          <div className="bg-white rounded-lg shadow p-4 mt-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Clock className="h-5 w-5 text-orange-500" />
+              <h2 className="text-lg font-semibold">Requested Bookings</h2>
+            </div>
+            <table className="w-full">
+              <thead>
+                <tr className="text-left">
+                  <th className="pb-2">Aircraft</th>
+                  <th className="pb-2">Member</th>
+                  <th className="pb-2">Instructor</th>
+                  <th className="pb-2">Description</th>
+                  <th className="pb-2">Times</th>
+                  <th className="pb-2">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {unconfirmedBookings.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-4 text-center text-gray-500">
+                      No unconfirmed bookings
+                    </td>
+                  </tr>
+                ) : (
+                  unconfirmedBookings.map((booking) => (
+                    <tr key={booking.id} className="border-t">
+                      <td className="py-2">
+                        {booking.aircraft?.registration || '-'}
+                      </td>
+                      <td className="py-2">
+                        {booking.user ? 
+                          `${booking.user.first_name} ${booking.user.last_name}` : 
+                          '-'
+                        }
+                      </td>
+                      <td className="py-2">
+                        {booking.instructor ? 
+                          `${booking.instructor.first_name} ${booking.instructor.last_name}` : 
+                          '-'
+                        }
+                      </td>
+                      <td className="py-2">
+                        {booking.description || '-'}
+                      </td>
+                      <td className="py-2">
+                        {booking.start_time ? 
+                          `${new Date(booking.start_time).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })} - ${new Date(booking.end_time || '').toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}` : 
+                          '-'
+                        }
+                      </td>
+                      <td className="py-2">
+                        <Link
+                          to={`/bookings/${booking.id}`}
+                          className="inline-flex items-center px-2.5 py-1.5 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-md transition-colors duration-200"
+                        >
+                          Confirm
+                        </Link>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -285,40 +685,81 @@ const AdminDashboard = () => {
 
         {/* Right column - 1/3 width */}
         <div className="w-1/3">
-          {/* Add WeatherCard at the top */}
+          {/* Weather Card */}
           <WeatherCard />
 
-          {/* Existing defects card */}
+          {/* Aircraft Defects */}
           <div className="bg-white rounded-lg shadow p-4">
-            <h2 className="text-lg font-semibold mb-4">Aircraft Defects</h2>
+            <div className="flex items-center gap-2 mb-4">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              <h2 className="text-lg font-semibold">Aircraft Defects</h2>
+            </div>
             <table className="w-full">
               <thead>
                 <tr className="text-left">
                   <th className="pb-2">Aircraft</th>
                   <th className="pb-2">Issue</th>
                   <th className="pb-2">Status</th>
+                  <th className="pb-2">Reported</th>
                 </tr>
               </thead>
               <tbody>
-                {currentDefects.map((defect) => (
-                  <tr key={defect.id} className="border-t">
-                    <td className="py-2">{defect.aircraft}</td>
-                    <td className="py-2 max-w-[200px] truncate">{defect.description}</td>
-                    <td className="py-2">
-                      <Badge 
-                        variant={
-                          defect.status === 'Open' ? 'destructive' : 
-                          defect.status === 'In Progress' ? 'default' : 
-                          'secondary'
-                        }
-                      >
-                        {defect.status}
-                      </Badge>
+                {defects.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-4 text-center text-gray-500">
+                      No defects reported
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  defects.map((defect) => (
+                    <tr 
+                      key={defect.id} 
+                      className="border-t cursor-pointer hover:bg-gray-50"
+                      onClick={() => handleDefectClick(defect)}
+                    >
+                      <td className="py-2">
+                        {defect.aircraft?.registration || '-'}
+                      </td>
+                      <td className="py-2 max-w-[200px] truncate">
+                        {defect.description}
+                      </td>
+                      <td className="py-2">
+                        <Badge 
+                          variant={
+                            defect.status === 'Open' ? 'destructive' : 
+                            defect.status === 'In Progress' ? 'warning' : 
+                            'secondary'
+                          }
+                        >
+                          {defect.status}
+                        </Badge>
+                      </td>
+                      <td className="py-2 text-sm text-gray-600">
+                        {defect.reported_date ? 
+                          new Date(defect.reported_date).toLocaleDateString() : 
+                          '-'
+                        }
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
+
+            {/* Add DefectModal */}
+            {selectedDefect && (
+              <DefectModal
+                defect={selectedDefect}
+                isOpen={isDefectModalOpen}
+                onClose={() => {
+                  setIsDefectModalOpen(false)
+                  setSelectedDefect(null)
+                }}
+                onStatusChange={() => {
+                  queryClient.invalidateQueries({ queryKey: ['defects'] })
+                }}
+              />
+            )}
           </div>
         </div>
       </div>

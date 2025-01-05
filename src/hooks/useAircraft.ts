@@ -116,15 +116,6 @@ class AircraftError extends Error {
   }
 }
 
-// Add stricter typing for the response
-interface SupabaseResponse<T> {
-  data: T | null
-  error: {
-    code: string
-    message: string
-    details?: string
-  } | null
-}
 
 // Hook for fetching a list of aircraft
 export function useAircraftList() {

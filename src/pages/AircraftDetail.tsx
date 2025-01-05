@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAircraft, type Defect, type Equipment, type Rate, type Booking } from '../hooks/useAircraft'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs"

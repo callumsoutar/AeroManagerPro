@@ -2,7 +2,6 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
   FaPlane, 
-  FaTachometerAlt, 
   FaCalendarAlt, 
   FaUsers, 
   FaUserFriends,
@@ -10,6 +9,7 @@ import {
   FaCog
 } from 'react-icons/fa';
 import { Calendar } from 'lucide-react';
+import { LayoutDashboard, Home } from 'lucide-react';
 
 interface MenuItem {
   title: string;
@@ -21,7 +21,8 @@ const Sidebar: React.FC = () => {
   const location = useLocation();
   
   const menuItems: MenuItem[] = [
-    { title: 'Dashboard', icon: <FaTachometerAlt />, path: '/' },
+    { title: 'Dashboard', icon: <LayoutDashboard size={18} />, path: '/' },
+    { title: 'Home', icon: <Home size={18} />, path: '/home' },
     { title: 'Aircraft', icon: <FaPlane />, path: '/aircraft' },
     { title: 'Scheduler', icon: <FaCalendarAlt />, path: '/scheduler' },
     { title: 'Staff', icon: <FaUsers />, path: '/staff' },

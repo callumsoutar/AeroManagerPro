@@ -141,142 +141,140 @@ interface SignOutSheetProps {
   booking: BookingDetails;
 }
 
-export default function SignOutSheet({ booking }: SignOutSheetProps) {
-  return (
-    <Document>
-      <Page size="A4" style={styles.page} orientation="landscape">
-        <View style={styles.headerContainer}>
-          <Text style={styles.mainTitle}>Flight Sign Out Sheet</Text>
-          <View style={styles.flightInfoGrid}>
-            <View style={styles.flightInfoItem}>
-              <Text style={styles.label}>Student:</Text>
-              <Text style={styles.value}>
-                {booking.user ? `${booking.user.first_name} ${booking.user.last_name}` : '-'}
-              </Text>
-            </View>
-            <View style={styles.flightInfoItem}>
-              <Text style={styles.label}>Instructor:</Text>
-              <Text style={styles.value}>{booking.instructor?.name || '-'}</Text>
-            </View>
-            <View style={styles.flightInfoItem}>
-              <Text style={styles.label}>Aircraft:</Text>
-              <Text style={styles.value}>{booking.aircraft?.registration || '-'}</Text>
-            </View>
-            <View style={styles.flightInfoItem}>
-              <Text style={styles.label}>Date:</Text>
-              <Text style={styles.value}>
-                {format(new Date(booking.start_time), 'dd MMM yyyy')}
-              </Text>
-            </View>
-            {booking.lesson && (
-              <View style={styles.flightInfoItem}>
-                <Text style={styles.label}>Lesson:</Text>
-                <Text style={styles.value}>{booking.lesson.name}</Text>
-              </View>
-            )}
-            {booking.description && (
-              <View style={styles.flightInfoItem}>
-                <Text style={styles.label}>Description:</Text>
-                <Text style={styles.value}>{booking.description}</Text>
-              </View>
-            )}
+export const SignOutSheet = ({ booking }: SignOutSheetProps) => (
+  <Document>
+    <Page size="A4" style={styles.page} orientation="landscape">
+      <View style={styles.headerContainer}>
+        <Text style={styles.mainTitle}>Flight Sign Out Sheet</Text>
+        <View style={styles.flightInfoGrid}>
+          <View style={styles.flightInfoItem}>
+            <Text style={styles.label}>Student:</Text>
+            <Text style={styles.value}>
+              {booking.user ? `${booking.user.first_name} ${booking.user.last_name}` : '-'}
+            </Text>
           </View>
+          <View style={styles.flightInfoItem}>
+            <Text style={styles.label}>Instructor:</Text>
+            <Text style={styles.value}>{booking.instructor?.name || '-'}</Text>
+          </View>
+          <View style={styles.flightInfoItem}>
+            <Text style={styles.label}>Aircraft:</Text>
+            <Text style={styles.value}>{booking.aircraft?.registration || '-'}</Text>
+          </View>
+          <View style={styles.flightInfoItem}>
+            <Text style={styles.label}>Date:</Text>
+            <Text style={styles.value}>
+              {format(new Date(booking.start_time), 'dd MMM yyyy')}
+            </Text>
+          </View>
+          {booking.lesson && (
+            <View style={styles.flightInfoItem}>
+              <Text style={styles.label}>Lesson:</Text>
+              <Text style={styles.value}>{booking.lesson.name}</Text>
+            </View>
+          )}
+          {booking.description && (
+            <View style={styles.flightInfoItem}>
+              <Text style={styles.label}>Description:</Text>
+              <Text style={styles.value}>{booking.description}</Text>
+            </View>
+          )}
         </View>
+      </View>
 
-        {/* Navigation Log */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Navigation Log</Text>
-          <View style={styles.table}>
-            <View style={styles.tableHeader}>
-              {[
-                "From",
-                "To",
-                "Alt",
-                "TAS",
-                "TT",
-                "Wind Dir",
-                "Speed",
-                "Var",
-                "Mag H",
-                "Dist",
-                "GS",
-                "Time",
-                "Dest Elv",
-                "ETA",
-                "Actual",
-              ].map((header, index) => (
-                <View key={index} style={styles.tableCol}>
-                  <Text style={styles.tableHeaderCell}>{header}</Text>
+      {/* Navigation Log */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Navigation Log</Text>
+        <View style={styles.table}>
+          <View style={styles.tableHeader}>
+            {[
+              "From",
+              "To",
+              "Alt",
+              "TAS",
+              "TT",
+              "Wind Dir",
+              "Speed",
+              "Var",
+              "Mag H",
+              "Dist",
+              "GS",
+              "Time",
+              "Dest Elv",
+              "ETA",
+              "Actual",
+            ].map((header, index) => (
+              <View key={index} style={styles.tableCol}>
+                <Text style={styles.tableHeaderCell}>{header}</Text>
+              </View>
+            ))}
+          </View>
+          {Array.from({ length: 6 }).map((_, rowIndex) => (
+            <View key={rowIndex} style={styles.tableRow}>
+              {Array.from({ length: 15 }).map((_, colIndex) => (
+                <View key={colIndex} style={styles.tableCol}>
+                  <Text> </Text>
                 </View>
               ))}
             </View>
-            {Array.from({ length: 6 }).map((_, rowIndex) => (
-              <View key={rowIndex} style={styles.tableRow}>
-                {Array.from({ length: 15 }).map((_, colIndex) => (
-                  <View key={colIndex} style={styles.tableCol}>
-                    <Text> </Text>
-                  </View>
-                ))}
-              </View>
-            ))}
-          </View>
+          ))}
+        </View>
+      </View>
+
+      {/* Flight Details Grid */}
+      <View style={styles.detailsGrid}>
+        <View style={styles.detailsCard}>
+          <Text style={styles.detailsTitle}>Time Records</Text>
+          {[
+            ["Tacho Start", ""],
+            ["Tacho End", ""],
+            ["Hobbs Start", ""],
+            ["Hobbs End", ""],
+          ].map(([label, value], index) => (
+            <View key={index} style={styles.detailsRow}>
+              <Text style={styles.label}>{label}</Text>
+              <Text style={styles.detailValue}>{value}</Text>
+            </View>
+          ))}
         </View>
 
-        {/* Flight Details Grid */}
-        <View style={styles.detailsGrid}>
-          <View style={styles.detailsCard}>
-            <Text style={styles.detailsTitle}>Time Records</Text>
-            {[
-              ["Tacho Start", ""],
-              ["Tacho End", ""],
-              ["Hobbs Start", ""],
-              ["Hobbs End", ""],
-            ].map(([label, value], index) => (
-              <View key={index} style={styles.detailsRow}>
-                <Text style={styles.label}>{label}</Text>
-                <Text style={styles.detailValue}>{value}</Text>
-              </View>
-            ))}
-          </View>
-
-          <View style={styles.detailsCard}>
-            <Text style={styles.detailsTitle}>Flight Duration</Text>
-            {[
-              ["Solo Time", ""],
-              ["Dual Time", ""],
-              ["Total Time", ""],
-              ["Night Time", ""],
-            ].map(([label, value], index) => (
-              <View key={index} style={styles.detailsRow}>
-                <Text style={styles.label}>{label}</Text>
-                <Text style={styles.detailValue}>{value}</Text>
-              </View>
-            ))}
-          </View>
-
-          <View style={styles.detailsCard}>
-            <Text style={styles.detailsTitle}>Fuel</Text>
-            {[
-              ["Total Fuel", ""],
-              ["Useable Fuel", ""],
-              ["Safe Endurance", ""],
-            ].map(([label, value], index) => (
-              <View key={index} style={styles.detailsRow}>
-                <Text style={styles.label}>{label}</Text>
-                <Text style={styles.detailValue}>{value}</Text>
-              </View>
-            ))}
-          </View>
+        <View style={styles.detailsCard}>
+          <Text style={styles.detailsTitle}>Flight Duration</Text>
+          {[
+            ["Solo Time", ""],
+            ["Dual Time", ""],
+            ["Total Time", ""],
+            ["Night Time", ""],
+          ].map(([label, value], index) => (
+            <View key={index} style={styles.detailsRow}>
+              <Text style={styles.label}>{label}</Text>
+              <Text style={styles.detailValue}>{value}</Text>
+            </View>
+          ))}
         </View>
 
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            This document is property of the Aeroclub. Please submit a copy to the
-            operations desk after completion.
-          </Text>
+        <View style={styles.detailsCard}>
+          <Text style={styles.detailsTitle}>Fuel</Text>
+          {[
+            ["Total Fuel", ""],
+            ["Useable Fuel", ""],
+            ["Safe Endurance", ""],
+          ].map(([label, value], index) => (
+            <View key={index} style={styles.detailsRow}>
+              <Text style={styles.label}>{label}</Text>
+              <Text style={styles.detailValue}>{value}</Text>
+            </View>
+          ))}
         </View>
-      </Page>
-    </Document>
-  );
-} 
+      </View>
+
+      {/* Footer */}
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>
+          This document is property of the Aeroclub. Please submit a copy to the
+          operations desk after completion.
+        </Text>
+      </View>
+    </Page>
+  </Document>
+); 

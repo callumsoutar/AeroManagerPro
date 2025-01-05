@@ -1,6 +1,5 @@
 import * as React from 'react';
-import { BrowserRouter as Router, Routes, Route, useParams } from 'react-router-dom';
-import Sidebar from './components/layout/Sidebar';
+import { RouterProvider, createBrowserRouter, useParams } from 'react-router-dom';
 import Members from './pages/Members';
 import MemberDetail from './pages/MemberDetail';
 import Scheduler from './pages/Scheduler';
@@ -19,6 +18,10 @@ import Invoices from './pages/Invoices';
 import InvoiceDetails from './pages/InvoiceDetails';
 import { Toaster } from 'sonner';
 import { ConfirmedBookingGuard } from './components/ConfirmedBookingGuard';
+import { Home } from './pages/Home';
+import { Layout } from './pages';
+import { CreateInvoice, CreateDefect } from './pages';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 const queryClient = new QueryClient();
 
@@ -35,34 +38,96 @@ const CheckoutRoute = () => {
 };
 
 const App: React.FC = () => {
+  const router = createBrowserRouter([
+    {
+      path: "/",
+      element: <Layout />,
+      errorElement: <ErrorBoundary />,
+      children: [
+        {
+          path: "/",
+          element: <AdminDashboard />
+        },
+        {
+          path: "home",
+          element: <Home />
+        },
+        {
+          path: "bookings/:id",
+          element: <BookingDetail />
+        },
+        {
+          path: "bookings/:id/edit",
+          element: <BookingDetail />
+        },
+        {
+          path: "bookings/:id/checkout",
+          element: <CheckoutRoute />
+        },
+        {
+          path: "bookings/:id/check-in",
+          element: <FlightCheckIn />
+        },
+        {
+          path: "bookings/:id/flight-details",
+          element: <FlightDetailsPage />
+        },
+        {
+          path: "aircraft",
+          element: <AircraftPage />
+        },
+        {
+          path: "aircraft/:id",
+          element: <AircraftDetail />
+        },
+        {
+          path: "scheduler",
+          element: <Scheduler />
+        },
+        {
+          path: "members",
+          element: <Members />
+        },
+        {
+          path: "members/:id",
+          element: <MemberDetail />
+        },
+        {
+          path: "staff",
+          element: <StaffPage />
+        },
+        {
+          path: "staff/:id",
+          element: <StaffDetail />
+        },
+        {
+          path: "bookings",
+          element: <Bookings />
+        },
+        {
+          path: "invoices",
+          element: <Invoices />
+        },
+        {
+          path: "invoices/:id",
+          element: <InvoiceDetails />
+        },
+        {
+          path: "invoices/new",
+          element: <CreateInvoice />
+        },
+        {
+          path: "defects/new",
+          element: <CreateDefect />
+        }
+      ]
+    }
+  ]);
+
   return (
     <QueryClientProvider client={queryClient}>
-      <Router>
-        <div className="flex min-h-screen bg-gray-50">
-          <Sidebar />
-          <main className="ml-[240px] p-5 flex-1 bg-white min-h-screen">
-            <Routes>
-              <Route path="/" element={<AdminDashboard />} />
-              <Route path="/bookings/:id" element={<BookingDetail />} />
-              <Route path="/bookings/:id/edit" element={<BookingDetail />} />
-              <Route path="/bookings/:id/checkout" element={<CheckoutRoute />} />
-              <Route path="/bookings/:id/check-in" element={<FlightCheckIn />} />
-              <Route path="/bookings/:id/flight-details" element={<FlightDetailsPage />} />
-              <Route path="/aircraft" element={<AircraftPage />} />
-              <Route path="/aircraft/:id" element={<AircraftDetail />} />
-              <Route path="/scheduler" element={<Scheduler />} />
-              <Route path="/members" element={<Members />} />
-              <Route path="/members/:id" element={<MemberDetail />} />
-              <Route path="/staff" element={<StaffPage />} />
-              <Route path="/staff/:id" element={<StaffDetail />} />
-              <Route path="/bookings" element={<Bookings />} />
-              <Route path="/invoices" element={<Invoices />} />
-              <Route path="/invoices/:id" element={<InvoiceDetails />} />
-            </Routes>
-          </main>
-        </div>
-        <Toaster position="top-right" />
-      </Router>
+      <RouterProvider router={router} />
+      <Toaster position="top-right" />
     </QueryClientProvider>
   );
 };

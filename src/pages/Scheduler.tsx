@@ -1,13 +1,10 @@
-import React, { useState, useRef } from 'react'
+import React, { useState } from 'react'
 import { Button } from "../components/ui/button"
 import { Plus } from 'lucide-react'
 import { NewBookingModal } from '../components/modals/NewBookingModal'
 import FullCalendar from '@fullcalendar/react'
 import resourceTimelinePlugin from '@fullcalendar/resource-timeline'
-import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
-import { ResourceInput } from '@fullcalendar/resource-common'
-import { EventSourceInput, DatesSetArg } from '@fullcalendar/core'
 import { Tooltip } from 'react-tooltip'
 import { format } from 'date-fns'
 import { useNavigate } from 'react-router-dom'
@@ -26,31 +23,13 @@ interface EventContent {
   };
 }
 
-interface CalendarResource extends ResourceInput {
-  title: string
-  id: string
-  eventColor: string
-  order: number
-  resourceAreaClassName?: string
-  className?: string
-  editable?: boolean
-  selectable?: boolean
-}
-
 const Scheduler = () => {
   const [isNewBookingModalOpen, setIsNewBookingModalOpen] = useState(false)
-  const calendarRef = useRef<FullCalendar>(null)
+  const calendarRef = React.useRef<any>(null)
   const navigate = useNavigate()
 
   // Define all resources inside the component
-  const resources: CalendarResource[] = [
-    {
-      title: 'Aircraft',
-      id: 'aircraft-group',
-      eventColor: '#2563eb',
-      order: 1,
-      resourceAreaClassName: 'resource-group'
-    },
+  const resources = [
     // Staff Section
     { title: 'Diego Acevedo (B)(Aeros)(IFR)(TAWA)', id: 'staff-1', eventColor: '#4a90e2', order: 1 },
     { title: 'Trinity Hart (B)(Aeros)(IFR)', id: 'staff-2', eventColor: '#4a90e2', order: 2 },
@@ -187,11 +166,10 @@ const Scheduler = () => {
       <div className="h-[800px]">
         <FullCalendar
           ref={calendarRef}
-          plugins={[resourceTimelinePlugin, dayGridPlugin, timeGridPlugin]}
-          initialView="resourceTimelineWeek"
-          schedulerLicenseKey="GPL-My-Project-Is-Open-Source"
-          resources={resources as ResourceInput[]}
-          events={events as EventSourceInput}
+          plugins={[resourceTimelinePlugin, timeGridPlugin]}
+          initialView="resourceTimelineDay"
+          resources={resources}
+          events={events}
           slotMinTime="07:00:00"
           slotMaxTime="21:00:00"
           slotDuration="00:30:00"
@@ -213,7 +191,7 @@ const Scheduler = () => {
           eventContent={renderEventContent}
           eventClassNames="h-full"
           eventClick={handleEventClick}
-          datesSet={(dateInfo: DatesSetArg) => {
+          datesSet={(dateInfo) => {
             console.log('Current date:', dateInfo.start)
           }}
         />
