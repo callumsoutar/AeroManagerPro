@@ -19,7 +19,7 @@ import {
   DialogContent,
 } from "../components/ui/dialog"
 import { PDFViewer, PDFDownloadLink } from '@react-pdf/renderer'
-import InvoiceTemplate from '../components/pdf/InvoiceTemplate'
+import InvoiceTemplate from '../pdf-templates/InvoiceTemplate'
 import { toast } from 'sonner'
 
 // Rename interface to avoid naming conflict
