@@ -20,8 +20,9 @@ import { Toaster } from 'sonner';
 import { ConfirmedBookingGuard } from './components/ConfirmedBookingGuard';
 import { Home } from './pages/Home';
 import { Layout } from './pages';
-import { CreateInvoice, CreateDefect } from './pages';
+import { CreateDefect } from './pages';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { NewInvoice } from './pages/NewInvoice';
 
 const queryClient = new QueryClient();
 
@@ -113,12 +114,12 @@ const App: React.FC = () => {
           element: <InvoiceDetails />
         },
         {
-          path: "invoices/new",
-          element: <CreateInvoice />
-        },
-        {
           path: "defects/new",
           element: <CreateDefect />
+        },
+        {
+          path: "invoices/create",
+          element: <NewInvoice />
         }
       ]
     }
