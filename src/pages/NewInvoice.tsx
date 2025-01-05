@@ -14,6 +14,7 @@ import { toast, Toaster } from 'sonner'
 import { ChargeableType } from '../data/chargeables'
 import { cn } from "../lib/utils"
 import { useClickOutside } from '../hooks/useClickOutside'
+import InvoiceTemplate from '@/components/pdf/InvoiceTemplate'
 
 // Create a type for the selected user that includes all required fields
 type SelectedUser = {
