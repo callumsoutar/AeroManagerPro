@@ -12,26 +12,13 @@ import {
 import { Input } from '../components/ui/input'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
-import { useState, useCallback, useRef } from 'react'
-import { debounce } from 'lodash'
+import { useState, useCallback } from 'react'
 import { Badge } from '../components/ui/badge'
 import { cn } from '../lib/utils'
 import { NewBookingModal } from '../components/modals/NewBookingModal'
 import { CurrentLocationModal } from '../components/modals/CurrentLocationModal'
 
 // Add interfaces for search results
-interface SearchedBooking {
-  id: string
-  aircraft: {
-    registration: string
-  }
-  user: {
-    first_name: string
-    last_name: string
-  }
-  start_time: string
-}
-
 interface SearchedMember {
   id: string
   first_name: string
@@ -54,7 +41,6 @@ interface Notice {
 export function Home() {
   const navigate = useNavigate()
   const [memberSearchQuery, setMemberSearchQuery] = useState('')
-  const [bookingSearchQuery, setBookingSearchQuery] = useState('')
   const [searchInputValue, setSearchInputValue] = useState('')
   const [showNewBookingModal, setShowNewBookingModal] = useState(false)
   const [showLocationModal, setShowLocationModal] = useState(false)
@@ -148,47 +134,6 @@ export function Home() {
     enabled: memberSearchQuery.length >= 2
   })
 
-  // Add booking search functionality
-  useQuery<SearchedBooking[]>({
-        queryKey: ['bookings', bookingSearchQuery],
-        queryFn: async () => {
-            if (!bookingSearchQuery) return []
-
-            const { data, error } = await supabase
-                .from('bookings')
-                .select(`
-          id,
-          aircraft:aircraft_id (
-            registration
-          ),
-          user:user_id (
-            first_name,
-            last_name
-          ),
-          start_time
-        `)
-                .or(`id.ilike.%${bookingSearchQuery}%`)
-                .order('start_time', { ascending: false })
-                .limit(5)
-
-            if (error) throw error
-
-            // Transform the data to match SearchedBooking type
-            return (data || []).map((booking: any): SearchedBooking => ({
-                id: booking.id,
-                aircraft: {
-                    registration: booking.aircraft?.registration || ''
-                },
-                user: {
-                    first_name: booking.user?.first_name || '',
-                    last_name: booking.user?.last_name || ''
-                },
-                start_time: booking.start_time
-            }))
-        },
-        enabled: bookingSearchQuery.length > 2
-    })
-
   // Create stable debounced functions using useRef
 
 
@@ -246,14 +191,17 @@ export function Home() {
         </button>
 
         {/* Create Purchase/Invoice */}
-        <Link to="/invoices/new">
-          <div className="group h-32 rounded-xl bg-indigo-50 hover:bg-indigo-100/80 transition-all p-6 cursor-pointer">
+        <div 
+          onClick={() => navigate('/invoices/create')}
+          className="w-full cursor-pointer"
+        >
+          <div className="group h-32 rounded-xl bg-indigo-50 hover:bg-indigo-100/80 transition-all p-6">
             <div className="flex flex-col items-center justify-center h-full gap-3">
               <Receipt className="h-8 w-8 text-indigo-600 group-hover:text-indigo-700 transition-colors" />
               <span className="text-lg font-medium text-indigo-900">Create Purchase</span>
             </div>
           </div>
-        </Link>
+        </div>
 
         {/* Member Search - Moved here */}
         <div className="rounded-xl border border-gray-200 bg-white shadow-sm p-6">

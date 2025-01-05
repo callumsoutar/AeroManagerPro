@@ -1,6 +1,6 @@
-import React, { useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import React, { useState, useEffect } from 'react'
+import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useQuery, UseQueryOptions } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import {
   Table,
@@ -13,32 +13,17 @@ import {
 import { Button } from "../components/ui/button"
 import { Badge } from "../components/ui/badge"
 import { format } from 'date-fns'
-import { ArrowLeft, Printer, Download, Eye } from 'lucide-react'
+import { ArrowLeft, Printer, Download, Eye, Loader2 } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
 } from "../components/ui/dialog"
+import { PDFViewer, PDFDownloadLink } from '@react-pdf/renderer'
+import InvoiceTemplate from '../components/pdf/InvoiceTemplate'
+import { toast } from 'sonner'
 
-// Import html2pdf with require to avoid TypeScript issues
-const html2pdf = require('html2pdf.js')
-
-interface FlightCharge {
-  description: string
-  rate: number
-  units: number
-  amount: number
-}
-
-interface AdditionalCharge {
-  id: string
-  type: string
-  total: number
-  amount: number
-  quantity: number
-  description: string
-}
-
-interface InvoiceDetails {
+// Rename interface to avoid naming conflict
+interface InvoiceData {
   id: string
   invoice_number: string
   total_amount: number
@@ -48,21 +33,39 @@ interface InvoiceDetails {
   due_date: string
   paid_date: string | null
   created_at: string
-  flight_charges: FlightCharge[]
-  additional_charges: AdditionalCharge[]
-  booking: {
+  flight_charges: Array<{
+    description: string
+    rate: number
+    units: number
+    amount: number
+  }> | null
+  additional_charges: Array<{
     id: string
-    aircraft: {
+    type: string
+    total: number
+    amount: number
+    quantity: number
+    description: string
+  }> | null
+  user?: {
+    name: string
+    email: string
+    address: string
+    city: string
+  }
+  booking?: {
+    id: string
+    aircraft?: {
       registration: string
       type: string
     }
-    user: {
+    user?: {
       name: string
       email: string
       address: string
       city: string
     }
-    flight_type: {
+    flight_type?: {
       name: string
     }
   }
@@ -94,79 +97,143 @@ const printStyles = `
   }
 `
 
+// Add this component for better loading states
+const PDFPreviewModal = ({ isOpen, onClose, invoice }: { 
+  isOpen: boolean
+  onClose: () => void
+  invoice: InvoiceData 
+}) => {
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-5xl h-[85vh] p-0">
+        <div className="flex flex-col h-full">
+          {/* Header */}
+          <div className="flex justify-between items-center p-4 border-b">
+            <div>
+              <h2 className="text-lg font-semibold">Invoice Preview</h2>
+              <p className="text-sm text-gray-500">#{invoice.invoice_number}</p>
+            </div>
+            <div className="flex gap-2">
+              <PDFDownloadLink
+                document={<InvoiceTemplate invoice={invoice} />}
+                fileName={`invoice-${invoice.invoice_number}.pdf`}
+              >
+                <Button variant="outline" size="sm">
+                  <Download className="h-4 w-4 mr-2" />
+                  Download PDF
+                </Button>
+              </PDFDownloadLink>
+              <Button variant="outline" size="sm" onClick={onClose}>
+                Close
+              </Button>
+            </div>
+          </div>
+
+          {/* PDF Viewer */}
+          <div className="flex-1 bg-gray-100">
+            <PDFViewer
+              width="100%"
+              height="100%"
+              className="rounded-b-lg"
+              showToolbar={false}
+            >
+              <InvoiceTemplate invoice={invoice} />
+            </PDFViewer>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 export default function InvoiceDetails() {
   const { id } = useParams<{ id: string }>()
-  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+  const navigate = useNavigate()
 
-  const { data: invoice, isLoading } = useQuery({
+  const { data: invoice, isLoading, error } = useQuery({
     queryKey: ['invoice', id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('invoices')
-        .select(`
-          *,
-          booking:booking_id (
-            id,
-            aircraft:aircraft_id (
-              registration,
-              type
-            ),
+      try {
+        const { data, error } = await supabase
+          .from('invoices')
+          .select(`
+            *,
             user:user_id (
               name,
               email,
               address,
               city
             ),
-            flight_type:flight_type_id (
-              name
+            booking:booking_id (
+              id,
+              aircraft:aircraft_id (
+                registration,
+                type
+              ),
+              user:user_id (
+                name,
+                email,
+                address,
+                city
+              ),
+              flight_type:flight_type_id (
+                name
+              )
             )
-          )
-        `)
-        .eq('id', id)
-        .single()
+          `)
+          .eq('id', id)
+          .single()
 
-      if (error) throw error
-      return data as InvoiceDetails
-    }
-  })
+        if (error) throw error
+        if (!data) throw new Error('Invoice not found')
+        
+        return data as InvoiceData
+      } catch (err) {
+        console.error('Error fetching invoice:', err)
+        toast.error('Failed to load invoice')
+        throw err
+      }
+    },
+    retry: 1,
+  } as UseQueryOptions<InvoiceData, Error>)
 
-  if (isLoading) {
-    return <div className="p-6">Loading invoice details...</div>
-  }
-
-  if (!invoice) {
-    return <div className="p-6">Invoice not found</div>
-  }
-
-  const generatePDF = (download = false) => {
-    const element = document.getElementById('invoice-content')
-    const opt = {
-      margin: 1,
-      filename: `invoice-${invoice.invoice_number}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2 },
-      jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-    }
-    
-    if (download) {
-      html2pdf().set(opt).from(element).save()
-    } else {
-      html2pdf().set(opt).from(element).outputPdf('blob').then((pdf: Blob) => {
-        const url = URL.createObjectURL(pdf)
-        setPdfPreviewUrl(url)
-        setIsPreviewOpen(true)
+  useEffect(() => {
+    if (error) {
+      navigate('/invoices', { 
+        replace: true,
+        state: { error: 'Failed to load invoice' }
       })
     }
+  }, [error, navigate])
+
+  if (isLoading) {
+    return (
+      <div className="p-6 flex justify-center items-center min-h-[200px]">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
+          <p className="text-sm text-gray-600">Loading invoice details...</p>
+        </div>
+      </div>
+    )
   }
 
-  // Cleanup URL when modal closes
-  const handleClosePreview = () => {
-    setIsPreviewOpen(false)
-    if (pdfPreviewUrl) {
-      URL.revokeObjectURL(pdfPreviewUrl)
-      setPdfPreviewUrl(null)
-    }
+  if (error || !invoice) {
+    return (
+      <div className="p-6">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6">
+          <h2 className="text-lg font-semibold text-red-800 mb-2">Error Loading Invoice</h2>
+          <p className="text-red-600">Unable to load invoice details. Please try again later.</p>
+          <Button 
+            onClick={() => navigate('/invoices')} 
+            className="mt-4"
+            variant="outline"
+          >
+            Return to Invoices
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -185,18 +252,23 @@ export default function InvoiceDetails() {
             <h1 className="text-3xl font-bold mt-2">Invoice {invoice.invoice_number}</h1>
           </div>
           <div className="flex gap-3">
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => window.print()}>
               <Printer className="h-4 w-4 mr-2" />
               Print
             </Button>
-            <Button variant="outline" size="sm" onClick={() => generatePDF(false)}>
+            <Button variant="outline" size="sm" onClick={() => setIsPreviewOpen(true)}>
               <Eye className="h-4 w-4 mr-2" />
-              Preview
+              Preview PDF
             </Button>
-            <Button variant="outline" size="sm" onClick={() => generatePDF(true)}>
-              <Download className="h-4 w-4 mr-2" />
-              Download
-            </Button>
+            <PDFDownloadLink
+              document={<InvoiceTemplate invoice={invoice} />}
+              fileName={`invoice-${invoice.invoice_number}.pdf`}
+            >
+              <Button variant="outline" size="sm">
+                <Download className="h-4 w-4 mr-2" />
+                Download PDF
+              </Button>
+            </PDFDownloadLink>
           </div>
         </div>
 
@@ -208,10 +280,25 @@ export default function InvoiceDetails() {
               {/* Left Column */}
               <div>
                 <h3 className="font-semibold mb-2">Bill To</h3>
-                <p className="text-gray-900">{invoice.booking.user.name}</p>
-                <p className="text-gray-600">{invoice.booking.user.email}</p>
-                <p className="text-gray-600">{invoice.booking.user.address}</p>
-                <p className="text-gray-600">{invoice.booking.user.city}</p>
+                {invoice.booking?.user ? (
+                  <>
+                    <p className="text-gray-900">{invoice.booking.user.name}</p>
+                    <p className="text-gray-600">{invoice.booking.user.email}</p>
+                    <p className="text-gray-600">{invoice.booking.user.address}</p>
+                    <p className="text-gray-600">{invoice.booking.user.city}</p>
+                  </>
+                ) : invoice.user ? (
+                  <>
+                    <p className="text-gray-900">{invoice.user.name}</p>
+                    <p className="text-gray-600">{invoice.user.email}</p>
+                    <p className="text-gray-600">{invoice.user.address}</p>
+                    <p className="text-gray-600">{invoice.user.city}</p>
+                  </>
+                ) : (
+                  <div className="text-gray-600">
+                    User information not available
+                  </div>
+                )}
               </div>
               
               {/* Right Column */}
@@ -241,24 +328,32 @@ export default function InvoiceDetails() {
             </div>
           </div>
 
-          {/* Flight Details */}
-          <div className="bg-white rounded-xl shadow-sm border p-6 mb-6">
-            <h3 className="font-semibold mb-4">Flight Details</h3>
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <p className="text-gray-600">Aircraft</p>
-                <p className="font-medium">{invoice.booking.aircraft.registration}</p>
-              </div>
-              <div>
-                <p className="text-gray-600">Type</p>
-                <p className="font-medium">{invoice.booking.aircraft.type}</p>
-              </div>
-              <div>
-                <p className="text-gray-600">Flight Type</p>
-                <p className="font-medium">{invoice.booking.flight_type.name}</p>
+          {/* Flight Details - Only show if booking exists */}
+          {invoice.booking && (
+            <div className="bg-white rounded-xl shadow-sm border p-6 mb-6">
+              <h3 className="font-semibold mb-4">Flight Details</h3>
+              <div className="grid grid-cols-3 gap-4">
+                {invoice.booking.aircraft && (
+                  <>
+                    <div>
+                      <p className="text-gray-600">Aircraft</p>
+                      <p className="font-medium">{invoice.booking.aircraft.registration}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-600">Type</p>
+                      <p className="font-medium">{invoice.booking.aircraft.type}</p>
+                    </div>
+                  </>
+                )}
+                {invoice.booking.flight_type && (
+                  <div>
+                    <p className="text-gray-600">Flight Type</p>
+                    <p className="font-medium">{invoice.booking.flight_type.name}</p>
+                  </div>
+                )}
               </div>
             </div>
-          </div>
+          )}
 
           {/* Charges Table */}
           <div className="bg-white rounded-xl shadow-sm border p-6 mb-6">
@@ -275,7 +370,7 @@ export default function InvoiceDetails() {
               </TableHeader>
               <TableBody>
                 {/* Flight Charges */}
-                {invoice.flight_charges.map((charge, index) => (
+                {(invoice.flight_charges || []).map((charge, index) => (
                   <TableRow key={index}>
                     <TableCell>{charge.description}</TableCell>
                     <TableCell>{formatCurrency(charge.rate)}</TableCell>
@@ -287,7 +382,7 @@ export default function InvoiceDetails() {
                 ))}
                 
                 {/* Additional Charges */}
-                {invoice.additional_charges.map((charge, index) => (
+                {(invoice.additional_charges || []).map((charge, index) => (
                   <TableRow key={charge.id}>
                     <TableCell>{charge.description}</TableCell>
                     <TableCell>{formatCurrency(charge.amount / charge.quantity)}</TableCell>
@@ -305,13 +400,13 @@ export default function InvoiceDetails() {
               <div className="flex justify-between items-center mb-2">
                 <span className="text-gray-600">Flight Charges</span>
                 <span>{formatCurrency(
-                  invoice.flight_charges.reduce((sum, charge) => sum + charge.amount, 0)
+                  (invoice.flight_charges || []).reduce((sum, charge) => sum + charge.amount, 0)
                 )}</span>
               </div>
               <div className="flex justify-between items-center mb-4">
                 <span className="text-gray-600">Additional Charges</span>
                 <span>{formatCurrency(
-                  invoice.additional_charges.reduce((sum, charge) => sum + charge.total, 0)
+                  (invoice.additional_charges || []).reduce((sum, charge) => sum + charge.total, 0)
                 )}</span>
               </div>
               <div className="flex justify-between items-center text-lg font-bold">
@@ -323,31 +418,11 @@ export default function InvoiceDetails() {
         </div>
 
         {/* PDF Preview Modal */}
-        <Dialog open={isPreviewOpen} onOpenChange={handleClosePreview}>
-          <DialogContent className="max-w-4xl h-[90vh]">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">
-                Invoice Preview
-              </h2>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => generatePDF(true)}>
-                  <Download className="h-4 w-4 mr-2" />
-                  Download
-                </Button>
-                <Button variant="outline" size="sm" onClick={handleClosePreview}>
-                  Close
-                </Button>
-              </div>
-            </div>
-            {pdfPreviewUrl && (
-              <iframe
-                src={pdfPreviewUrl}
-                className="w-full h-full rounded-md"
-                title="PDF Preview"
-              />
-            )}
-          </DialogContent>
-        </Dialog>
+        <PDFPreviewModal 
+          isOpen={isPreviewOpen}
+          onClose={() => setIsPreviewOpen(false)}
+          invoice={invoice}
+        />
       </div>
     </>
   )
