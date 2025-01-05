@@ -11,6 +11,9 @@ interface User {
   status: string
   join_date: string
   last_flight: string | null
+  phone: string | null
+  address: string | null
+  city: string | null
   // ... other fields
 }
 

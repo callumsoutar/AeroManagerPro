@@ -70,6 +70,7 @@ export default function Invoices() {
           </div>
           <Button 
             className="bg-[#1a1a2e] hover:bg-[#2d2d44] text-white"
+            onClick={() => navigate('/invoices/create')}
           >
             <FileText className="mr-2 h-4 w-4" />
             New Invoice

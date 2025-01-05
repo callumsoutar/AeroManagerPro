@@ -1,0 +1,34 @@
+export interface User {
+  id: string
+  name?: string
+  email?: string
+  user_number?: string
+  photo_url?: string
+  status?: string
+  join_date?: string
+  membership_type?: string
+  license_type?: string
+  last_flight?: string
+  is_member?: boolean
+  is_staff?: boolean
+  created_at?: string
+  membership_expiry?: string
+  phone?: string
+  address?: string
+  city?: string
+  gender?: string
+  emergency_contact_name?: string
+  emergency_contact_phone?: string
+  medical_expiry?: string
+  bfr_expiry?: string
+  dl9_medical_due?: string
+  class2_medical_due?: string
+  caa_client_number?: string
+  prime_ratings?: string[]
+  type_ratings?: string[]
+  endorsements?: string[]
+  birth_date?: string
+  first_name: string
+  last_name: string
+  postal_code?: string
+} 
