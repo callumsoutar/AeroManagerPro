@@ -9,6 +9,22 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    commonjsOptions: {
+      transformMixedEsModules: true,
+    },
+    rollupOptions: {
+      external: ['@react-pdf/renderer'],
+      output: {
+        globals: {
+          '@react-pdf/renderer': 'ReactPDF'
+        }
+      }
+    }
+  },
+  optimizeDeps: {
+    exclude: ['@react-pdf/renderer']
+  },
   server: {
     port: 3000
   }

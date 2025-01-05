@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, lazy, Suspense } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { Button } from "../components/ui/button"
 import { Badge } from "../components/ui/badge"
@@ -12,9 +12,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { Table, TableHeader, TableBody, TableCell, TableHead, TableRow } from "../components/ui/table"
 import { BlobProvider } from "@react-pdf/renderer"
-import { SignOutSheet } from "../components/pdf/SignOutSheet"
 import type { ReactElement } from 'react'
 import { toast } from 'sonner'
+
+const SignOutSheet = lazy(() => import('../components/pdf/SignOutSheet'))
 
 const BookingDetail = () => {
   const { id } = useParams<{ id: string }>()
@@ -105,7 +106,11 @@ const BookingDetail = () => {
   }
 
   const PrintCheckoutSheet = (): ReactElement => (
-    <BlobProvider document={<SignOutSheet booking={booking} />}>
+    <BlobProvider document={
+      <Suspense fallback={<div>Loading PDF generator...</div>}>
+        <SignOutSheet booking={booking} />
+      </Suspense>
+    }>
       {({ loading, url }) => (
         <Button 
           className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
