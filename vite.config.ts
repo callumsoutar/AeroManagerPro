@@ -10,20 +10,14 @@ export default defineConfig({
     },
   },
   build: {
+    outDir: 'build',
+    sourcemap: true,
     commonjsOptions: {
       transformMixedEsModules: true,
-    },
-    rollupOptions: {
-      external: ['@react-pdf/renderer'],
-      output: {
-        globals: {
-          '@react-pdf/renderer': 'ReactPDF'
-        }
-      }
     }
   },
   optimizeDeps: {
-    exclude: ['@react-pdf/renderer']
+    include: ['@react-pdf/renderer']
   },
   server: {
     port: 3000
