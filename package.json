@@ -70,7 +70,7 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "CI=false react-scripts build",
+    "build": "CI=false react-scripts build && tsc --project tsconfig.server.json",
     "build:emails": "tsc --project tsconfig.server.json",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
@@ -142,6 +142,7 @@
     "tailwindcss": "^3.4.17",
     "ts-node": "^10.9.2",
     "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
-    "@types/eslint": "^8.56.0"
+    "@types/eslint": "^8.56.0",
+    "@vercel/node": "3.0.11"
   }
 }

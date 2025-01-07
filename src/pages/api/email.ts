@@ -1,7 +1,7 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { NextApiRequest, NextApiResponse } from 'next';
 import { Resend } from 'resend';
 import { render } from '@react-email/render';
-import BookingConfirmationEmail from '../src/emails/BookingConfirmation';
+import BookingConfirmationEmail from '../../emails/BookingConfirmation';
 
 // Debug environment variables on module load
 console.log('API Route Environment Variables:', {
@@ -12,7 +12,7 @@ console.log('API Route Environment Variables:', {
 
 const resend = new Resend(process.env.REACT_APP_RESEND_API_KEY);
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   console.log('API Route hit:', {
     method: req.method,
     url: req.url,
