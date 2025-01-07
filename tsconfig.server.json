@@ -1,14 +1,15 @@
 {
-  "extends": "./tsconfig.json",
   "compilerOptions": {
-    "module": "CommonJS",
-    "outDir": "dist",
-    "noEmit": false,
-    "jsx": "react-jsx",
-    "types": ["node"],
+    "target": "es2017",
+    "module": "commonjs",
     "moduleResolution": "node",
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "strict": true,
+    "outDir": "dist",
+    "rootDir": ".",
+    "jsx": "react-jsx",
+    "skipLibCheck": true
   },
-  "include": ["src/pages/api/**/*", "src/emails/**/*"],
-  "exclude": ["node_modules"]
+  "include": ["api/**/*", "src/emails/**/*"],
+  "exclude": ["node_modules", "dist"]
 } 
