@@ -366,6 +366,7 @@ export default function InvoiceDetails() {
                   <TableHead>Rate</TableHead>
                   <TableHead>Units</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
+                  <TableHead className="w-8"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -378,18 +379,20 @@ export default function InvoiceDetails() {
                     <TableCell className="text-right">
                       {formatCurrency(charge.amount)}
                     </TableCell>
+                    <TableCell></TableCell>
                   </TableRow>
                 ))}
                 
                 {/* Additional Charges */}
                 {(invoice.additional_charges || []).map((charge, index) => (
-                  <TableRow key={charge.id}>
+                  <TableRow key={charge.id || index}>
                     <TableCell>{charge.description}</TableCell>
-                    <TableCell>{formatCurrency(charge.amount / charge.quantity)}</TableCell>
+                    <TableCell>{formatCurrency(charge.amount)}</TableCell>
                     <TableCell>{charge.quantity}</TableCell>
                     <TableCell className="text-right">
                       {formatCurrency(charge.total)}
                     </TableCell>
+                    <TableCell></TableCell>
                   </TableRow>
                 ))}
               </TableBody>

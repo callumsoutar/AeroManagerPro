@@ -154,6 +154,7 @@ export interface Database {
           updated_at: string
           invoice_number: string
           notes: string | null
+          reference?: string | null
         }
         Insert: Omit<Database['public']['Tables']['invoices']['Row'], 'id' | 'created_at' | 'updated_at'>
         Update: Partial<Database['public']['Tables']['invoices']['Insert']>

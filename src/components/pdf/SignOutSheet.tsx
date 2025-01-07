@@ -1,138 +1,145 @@
-import { Page, Text, View, Document, StyleSheet } from "@react-pdf/renderer";
+import React from "react";
+import {
+  Page,
+  Text,
+  View,
+  Document,
+  StyleSheet,
+} from "@react-pdf/renderer";
 import { format } from 'date-fns';
 import type { BookingDetails } from '../../hooks/useBooking';
 
 const styles = StyleSheet.create({
   page: {
-    flexDirection: 'column' as const,
+    flexDirection: "column",
     backgroundColor: "#ffffff",
-    padding: 30,
+    padding: 25,
   },
   headerContainer: {
-    marginBottom: 20,
-    backgroundColor: "#f3f4f6",
-    borderRadius: 8,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#d1d5db",
+    marginBottom: 15,
+    backgroundColor: "#ffffff",
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e7eb",
   },
   mainTitle: {
-    fontSize: 18,
-    color: "#000000",
-    marginBottom: 12,
+    fontSize: 22,
+    color: "#111827",
+    marginBottom: 10,
     fontWeight: "bold",
   },
   flightInfoGrid: {
-    flexDirection: "row" as const,
-    gap: 16,
-    flexWrap: 'wrap' as const,
+    flexDirection: "row",
+    gap: 14,
+    flexWrap: "wrap",
   },
   flightInfoItem: {
-    flexDirection: "row" as const,
+    flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 8,
     minWidth: 180,
   },
   label: {
-    fontSize: 9,
-    color: "#4b5563",
+    fontSize: 10,
+    color: "#6b7280",
   },
   value: {
-    fontSize: 9,
-    color: "#000000",
-    fontWeight: "bold",
+    fontSize: 10,
+    color: "#111827",
+    fontWeight: "medium",
   },
   section: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
   sectionTitle: {
-    fontSize: 14,
-    color: "#000000",
-    marginBottom: 8,
+    fontSize: 15,
+    color: "#111827",
+    marginBottom: 6,
     fontWeight: "bold",
   },
   table: {
     width: "auto",
     borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 8,
+    borderColor: "#e5e7eb",
+    borderRadius: 4,
     overflow: "hidden",
   },
   tableHeader: {
-    flexDirection: "row" as const,
-    backgroundColor: "#f3f4f6",
+    flexDirection: "row",
+    backgroundColor: "#f9fafb",
     borderBottomWidth: 1,
-    borderBottomColor: "#d1d5db",
+    borderBottomColor: "#e5e7eb",
   },
   tableRow: {
-    flexDirection: "row" as const,
+    flexDirection: "row",
     borderBottomWidth: 1,
-    borderBottomColor: "#d1d5db",
-    minHeight: 28,
+    borderBottomColor: "#e5e7eb",
+    minHeight: 24,
+    backgroundColor: "#ffffff",
   },
   tableCol: {
     flex: 1,
-    padding: 8,
+    padding: 6,
     fontSize: 9,
     justifyContent: "center",
     alignItems: "center",
     borderRightWidth: 1,
-    borderRightColor: "#d1d5db",
+    borderRightColor: "#e5e7eb",
   },
   tableHeaderCell: {
     fontSize: 9,
     fontWeight: "bold",
-    color: "#000000",
+    color: "#374151",
   },
   detailsGrid: {
-    flexDirection: "row" as const,
-    gap: 12,
-    marginTop: 12,
+    flexDirection: "row",
+    gap: 14,
+    marginTop: 14,
   },
   detailsCard: {
     flex: 1,
-    backgroundColor: "#f3f4f6",
-    borderRadius: 8,
+    backgroundColor: "#ffffff",
+    borderRadius: 4,
     padding: 12,
     borderWidth: 1,
-    borderColor: "#d1d5db",
+    borderColor: "#e5e7eb",
   },
   detailsTitle: {
-    fontSize: 11,
-    color: "#000000",
+    fontSize: 13,
+    color: "#111827",
     fontWeight: "bold",
-    marginBottom: 8,
+    marginBottom: 10,
     paddingBottom: 4,
     borderBottomWidth: 1,
-    borderBottomColor: "#d1d5db",
+    borderBottomColor: "#e5e7eb",
   },
   detailsRow: {
-    flexDirection: "row" as const,
+    flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 6,
     alignItems: "center",
   },
   detailValue: {
     fontSize: 10,
-    color: "#000000",
+    color: "#111827",
     borderBottomWidth: 1,
-    borderBottomColor: "#d1d5db",
-    minWidth: 100,
+    borderBottomColor: "#e5e7eb",
+    minWidth: 120,
     textAlign: "center",
     paddingVertical: 2,
   },
   footer: {
     position: "absolute",
-    bottom: 30,
-    left: 30,
-    right: 30,
+    bottom: 25,
+    left: 25,
+    right: 25,
     borderTopWidth: 1,
-    borderTopColor: "#d1d5db",
-    paddingTop: 12,
+    borderTopColor: "#e5e7eb",
+    paddingTop: 10,
   },
   footerText: {
     fontSize: 8,
-    color: "#4b5563",
+    color: "#6b7280",
     textAlign: "center",
   },
 });
@@ -167,12 +174,10 @@ export const SignOutSheet = ({ booking }: SignOutSheetProps) => (
               {format(new Date(booking.start_time), 'dd MMM yyyy')}
             </Text>
           </View>
-          {booking.lesson && (
-            <View style={styles.flightInfoItem}>
-              <Text style={styles.label}>Lesson:</Text>
-              <Text style={styles.value}>{booking.lesson.name}</Text>
-            </View>
-          )}
+          <View style={styles.flightInfoItem}>
+            <Text style={styles.label}>Lesson:</Text>
+            <Text style={styles.value}>{booking.lesson?.name || '-'}</Text>
+          </View>
           {booking.description && (
             <View style={styles.flightInfoItem}>
               <Text style={styles.label}>Description:</Text>

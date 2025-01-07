@@ -73,6 +73,7 @@ export interface Aircraft {
   defects: Defect[]
   rates: Rate[]
   bookings: Booking[]
+  prioritise: boolean;
 }
 
 // Add interface for the raw data structure from Supabase

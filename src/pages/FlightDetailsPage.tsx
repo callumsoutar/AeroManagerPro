@@ -15,7 +15,7 @@ import { supabase } from '../lib/supabase'
 import { useChargeables } from '../hooks/useChargeables'
 import { toast, Toaster } from 'sonner'
 import { PaymentCollectionModal } from '../components/modals/PaymentCollectionModal'
-const html2pdf = require('html2pdf.js')
+
 
 interface FlightTimes {
   tacho_end: string;
@@ -80,7 +80,6 @@ const FlightDetailsPage = () => {
   const [createdInvoiceNumber, setCreatedInvoiceNumber] = useState<string | null>(null)
   const [invoiceAmount, setInvoiceAmount] = useState<number>(0)
   const [isFlightCompleted, setIsFlightCompleted] = useState(false)
-  const [invoiceDetails, setInvoiceDetails] = useState<any>(null)
   
   // Memoize currentAircraftRates
   const currentAircraftRates = useMemo(() => {
@@ -324,93 +323,6 @@ const FlightDetailsPage = () => {
       })
     } finally {
       setIsSubmitting(false)
-    }
-  }
-
-  const generateInvoicePDF = async () => {
-    try {
-      if (!createdInvoiceId) {
-        toast.error('No invoice found')
-        return
-      }
-
-      // Show loading state
-      toast.loading('Preparing invoice PDF...')
-
-      // Fetch invoice details if not already loaded
-      if (!invoiceDetails) {
-        const { data, error } = await supabase
-          .from('invoices')
-          .select(`
-            *,
-            booking:booking_id (
-              id,
-              aircraft:aircraft_id (
-                registration,
-                type
-              ),
-              user:user_id (
-                name,
-                email,
-                address,
-                city
-              ),
-              flight_type:flight_type_id (
-                name
-              )
-            )
-          `)
-          .eq('id', createdInvoiceId)
-          .single()
-
-        if (error) throw error
-        setInvoiceDetails(data)
-      }
-
-      // Wait for the next render cycle
-      setTimeout(() => {
-        const element = document.getElementById('invoice-content')
-        if (!element) {
-          toast.error('Could not generate PDF')
-          return
-        }
-
-        const opt = {
-          margin: 10,
-          filename: `invoice-${createdInvoiceNumber}.pdf`,
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { 
-            scale: 2,
-            useCORS: true,
-            logging: true,
-            letterRendering: true,
-            allowTaint: true
-          },
-          jsPDF: { 
-            unit: 'mm', 
-            format: 'a4', 
-            orientation: 'portrait'
-          }
-        }
-
-        html2pdf()
-          .set(opt)
-          .from(element)
-          .save()
-          .then(() => {
-            toast.success('Invoice PDF generated successfully')
-          })
-          .catch((error: unknown) => {
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
-            console.error('PDF generation error:', errorMessage)
-            toast.error('Failed to generate PDF')
-          })
-      }, 500)
-
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
-      console.error('PDF generation error:', errorMessage)
-      toast.error('Failed to generate PDF')
     }
   }
 
@@ -796,7 +708,7 @@ const FlightDetailsPage = () => {
                       <Button
                         className="flex-1"
                         variant="outline"
-                        onClick={generateInvoicePDF}
+                        onClick={() => setIsPaymentModalOpen(true)}
                       >
                         View Invoice
                       </Button>
@@ -833,18 +745,8 @@ const FlightDetailsPage = () => {
           invoiceId={createdInvoiceId}
           invoiceNumber={createdInvoiceNumber!}
           totalAmount={invoiceAmount}
-          onDownloadInvoice={generateInvoicePDF}
+          onDownloadInvoice={() => setIsPaymentModalOpen(true)}
         />
-      )}
-
-      {invoiceDetails && (
-        <div id="invoice-content" className="hidden">
-          <div className="p-6 max-w-4xl mx-auto">
-            <div className="bg-white rounded-xl shadow-sm border p-6 mb-6">
-              {/* ... rest of invoice content structure ... */}
-            </div>
-          </div>
-        </div>
       )}
 
       <Toaster richColors />

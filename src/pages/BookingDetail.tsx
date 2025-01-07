@@ -4,7 +4,7 @@ import { Button } from "../components/ui/button"
 import { Badge } from "../components/ui/badge"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs"
 import { format } from 'date-fns'
-import { FileEdit, CheckCircle2, FileText } from 'lucide-react'
+import { FileEdit, CheckCircle2, FileText, Mail } from 'lucide-react'
 import { useBooking } from '../hooks/useBooking'
 import { getFullName } from '../lib/utils'
 import { EditBookingModal } from "../components/modals/EditBookingModal"
@@ -15,6 +15,7 @@ import { BlobProvider } from "@react-pdf/renderer"
 import { SignOutSheet } from "../components/pdf/SignOutSheet"
 import type { ReactElement } from 'react'
 import { toast } from 'sonner'
+import { sendBookingConfirmation } from '../lib/resend'
 
 const BookingDetail = () => {
   const { id } = useParams<{ id: string }>()
@@ -139,6 +140,49 @@ const BookingDetail = () => {
           </p>
         </div>
         <div className="flex items-center gap-4">
+          {booking.flight_type?.name === 'Trial Flight' && (
+            <Button
+              variant="outline"
+              onClick={async () => {
+                try {
+                  const emailData = {
+                    memberName: `${booking.user?.first_name} ${booking.user?.last_name}`,
+                    memberEmail: booking.user?.email || '',
+                    bookingDate: booking.start_time,
+                    aircraftReg: booking.aircraft?.registration || '',
+                    instructorName: booking.instructor?.name || '',
+                    startTime: format(new Date(booking.start_time), 'HH:mm'),
+                    endTime: format(new Date(booking.end_time), 'HH:mm'),
+                  };
+
+                  toast.promise(
+                    fetch(`${process.env.REACT_APP_API_URL}/sendTrialFlightEmail`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify(emailData)
+                    }).then(res => {
+                      if (!res.ok) throw new Error('Failed to send email');
+                      return res.json();
+                    }),
+                    {
+                      loading: 'Sending trial flight email...',
+                      success: 'Trial flight email sent!',
+                      error: 'Failed to send trial flight email'
+                    }
+                  );
+                } catch (error) {
+                  console.error('Error sending trial flight email:', error);
+                  toast.error('Failed to send trial flight email');
+                }
+              }}
+              className="gap-2"
+            >
+              <Mail className="h-4 w-4" />
+              Send Trial Flight Email
+            </Button>
+          )}
           <Button
             variant="outline"
             onClick={() => setIsEditModalOpen(true)}
@@ -275,10 +319,39 @@ const BookingDetail = () => {
             {/* Right Column - Flight Times and People */}
             <div className="space-y-6">
               {/* Flight Times Section */}
-              <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-1 h-6 bg-green-500 rounded-full"></div>
-                  <h3 className="font-semibold text-gray-900">Flight Times</h3>
+              <div className="bg-white rounded-xl shadow-sm border p-6 mb-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-lg font-semibold">Flight Times</h2>
+                  <Button 
+                    onClick={async () => {
+                      try {
+                        const emailData = {
+                          memberName: `${booking.user?.first_name} ${booking.user?.last_name}`,
+                          memberEmail: booking.user?.email || '',
+                          bookingDate: booking.start_time,
+                          aircraftReg: booking.aircraft?.registration || '',
+                          instructorName: booking.instructor?.name,
+                          startTime: format(new Date(booking.start_time), 'HH:mm'),
+                          endTime: format(new Date(booking.end_time), 'HH:mm'),
+                          flightType: booking.flight_type?.name || ''
+                        };
+
+                        toast.promise(sendBookingConfirmation(emailData), {
+                          loading: 'Sending confirmation email...',
+                          success: 'Confirmation email sent!',
+                          error: 'Failed to send confirmation email'
+                        });
+                      } catch (error) {
+                        console.error('Error sending confirmation:', error);
+                        toast.error('Failed to send confirmation email');
+                      }
+                    }}
+                    variant="outline"
+                    className="flex items-center gap-2"
+                  >
+                    <Mail className="h-4 w-4" />
+                    Send Booking Confirmation
+                  </Button>
                 </div>
                 <div className="grid grid-cols-2 gap-4 bg-green-50/50 p-3 rounded-lg">
                   <div>

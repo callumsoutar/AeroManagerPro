@@ -10,6 +10,10 @@ import { DefectModal } from '../components/modals/DefectModal'
 import { cn } from '../lib/utils'
 import { AddDefectModal } from "../components/modals/AddDefectModal"
 import { Plus } from 'lucide-react'
+import { Label } from "../components/ui/label"
+import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group"
+import { toast } from "sonner"
+import { supabase } from '../lib/supabase'
 
 function getUserFullName(user: { first_name: string; last_name: string }) {
   return `${user.first_name} ${user.last_name}`
@@ -195,6 +199,40 @@ const AircraftDetail = () => {
                   {formatDateSafely(aircraft.next_service_due)}
                 </p>
               </div>
+            </div>
+
+            <div className="mt-4 border-t pt-4">
+              <Label className="text-sm font-medium text-gray-900 mb-2 block">
+                Prioritise Flying
+              </Label>
+              <RadioGroup
+                defaultValue={aircraft.prioritise ? "true" : "false"}
+                onValueChange={async (value) => {
+                  try {
+                    const { error } = await supabase
+                      .from('aircraft')
+                      .update({ prioritise: value === "true" })
+                      .eq('id', aircraft.id)
+
+                    if (error) throw error
+
+                    toast.success('Aircraft priority updated successfully')
+                  } catch (error) {
+                    console.error('Error updating aircraft priority:', error)
+                    toast.error('Failed to update aircraft priority')
+                  }
+                }}
+                className="flex items-center space-x-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="true" id="priority-true" />
+                  <Label htmlFor="priority-true">Yes</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="false" id="priority-false" />
+                  <Label htmlFor="priority-false">No</Label>
+                </div>
+              </RadioGroup>
             </div>
           </div>
         </div>

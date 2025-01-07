@@ -23,6 +23,7 @@ import { Layout } from './pages';
 import { CreateDefect } from './pages';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { NewInvoice } from './pages/NewInvoice';
+import Reception from './pages/Reception';
 
 const queryClient = new QueryClient();
 
@@ -120,6 +121,10 @@ const App: React.FC = () => {
         {
           path: "invoices/create",
           element: <NewInvoice />
+        },
+        {
+          path: "reception",
+          element: <Reception />
         }
       ]
     }

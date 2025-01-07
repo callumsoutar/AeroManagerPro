@@ -52,6 +52,15 @@ interface Booking {
   };
 }
 
+interface Invoice {
+  id: string;
+  invoice_number: string;
+  status: string;
+  created_at: string;
+  due_date: string;
+  total_amount: number;
+}
+
 function getStatusColor(status: string) {
   switch (status.toLowerCase()) {
     case 'flying':
@@ -136,6 +145,26 @@ const MemberDetail = () => {
 
       if (error) throw error
       return data || [] // Ensure we always return an array
+    }
+  })
+
+  // Add this query alongside your other queries
+  const { 
+    data: userInvoices, 
+    isLoading: isInvoicesLoading,
+    isError: isInvoicesError,
+    error: invoicesError 
+  } = useQuery<Invoice[]>({
+    queryKey: ['member-invoices', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('*')
+        .eq('user_id', id)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      return data || []
     }
   })
 
@@ -782,6 +811,82 @@ const MemberDetail = () => {
 
                   <TabsContent value="permissions">
                     <div className="text-gray-500">Permissions will be displayed here</div>
+                  </TabsContent>
+
+                  <TabsContent value="account">
+                    <div className="space-y-6">
+                      <div>
+                        <h2 className="text-lg font-semibold mb-4">Account History</h2>
+                        {isInvoicesError ? (
+                          <div className="text-center text-red-600 p-4">
+                            <p>Error loading invoices: {invoicesError?.message}</p>
+                            <Button 
+                              onClick={() => window.location.reload()} 
+                              className="mt-2"
+                              variant="outline"
+                            >
+                              Retry
+                            </Button>
+                          </div>
+                        ) : isInvoicesLoading ? (
+                          <div className="text-center p-4">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900 mx-auto"></div>
+                          </div>
+                        ) : (
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Invoice #</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead>Created Date</TableHead>
+                                <TableHead>Due Date</TableHead>
+                                <TableHead>Total</TableHead>
+                                <TableHead>Actions</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {userInvoices?.length === 0 ? (
+                                <TableRow>
+                                  <TableCell colSpan={6} className="text-center text-gray-500">
+                                    No invoices found
+                                  </TableCell>
+                                </TableRow>
+                              ) : (
+                                userInvoices?.map((invoice) => (
+                                  <TableRow key={invoice.id}>
+                                    <TableCell className="font-medium">
+                                      {invoice.invoice_number}
+                                    </TableCell>
+                                    <TableCell>
+                                      <Badge className={getStatusColor(invoice.status)}>
+                                        {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                      {format(new Date(invoice.created_at), 'dd MMM yyyy')}
+                                    </TableCell>
+                                    <TableCell>
+                                      {format(new Date(invoice.due_date), 'dd MMM yyyy')}
+                                    </TableCell>
+                                    <TableCell>
+                                      ${invoice.total_amount.toFixed(2)}
+                                    </TableCell>
+                                    <TableCell>
+                                      <Button
+                                        variant="ghost"
+                                        onClick={() => navigate(`/invoices/${invoice.id}`)}
+                                      >
+                                        View Details
+                                      </Button>
+                                    </TableCell>
+                                  </TableRow>
+                                ))
+                              )}
+                            </TableBody>
+                          </Table>
+                        )}
+                      </div>
+                    </div>
                   </TabsContent>
                 </div>
               </Tabs>

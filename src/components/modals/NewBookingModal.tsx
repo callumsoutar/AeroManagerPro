@@ -3,8 +3,8 @@ import { useQueryClient, useQuery } from "@tanstack/react-query"
 import { supabase } from "../../lib/supabase"
 import DatePicker from "react-datepicker"
 import "react-datepicker/dist/react-datepicker.css"
-import { setHours, setMinutes, addHours } from "date-fns"
-import { CalendarIcon } from "lucide-react"
+import { setHours, setMinutes, addHours, format } from "date-fns"
+import { CalendarIcon, AlertCircle } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -25,6 +25,15 @@ import {
 } from "../ui/select"
 import { Input } from "../ui/input"
 import { toast } from 'sonner'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../ui/tooltip"
+import { sendBookingConfirmation } from "../../lib/resend"
+import { validateVoucher } from "../../data/vouchers"
+import { cn } from "../../lib/utils"
 
 interface NewBookingModalProps {
   open: boolean
@@ -68,6 +77,52 @@ interface User {
   is_staff: boolean
 }
 
+interface EmailBookingData {
+  memberName: string;
+  memberEmail: string;
+  bookingDate: string;
+  aircraftReg: string;
+  instructorName?: string;
+  startTime: string;
+  endTime: string;
+  flightType: string;
+}
+
+// Add this interface
+interface SelectedUser {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+}
+
+// Add these interfaces at the top with your other interfaces
+interface Aircraft {
+  id: string;
+  registration: string;
+  prioritise?: boolean;
+}
+
+interface Instructor {
+  id: string;
+  name: string;
+}
+
+// Inside your component, add this interface for trial booking state
+interface TrialBookingState {
+  startTime: Date;
+  endTime: Date;
+  aircraftId: string;
+  instructorId: string;
+  flightTypeId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  voucherNumber: string;
+  description: string;
+}
+
 export function NewBookingModal({ open, onClose }: NewBookingModalProps) {
   const queryClient = useQueryClient()
   const [isLoading, setIsLoading] = useState(false)
@@ -87,15 +142,23 @@ export function NewBookingModal({ open, onClose }: NewBookingModalProps) {
   })
 
   // Trial flight state
-  const [trialBooking] = useState({
-    customerName: '',
-    customerEmail: '',
-    customerPhone: '',
+  const [trialBooking, setTrialBooking] = useState<TrialBookingState>({
+    startTime: setMinutes(setHours(new Date(), 9), 0),
+    endTime: setMinutes(setHours(new Date(), 11), 0),
     aircraftId: '',
     instructorId: '',
-    startTime: '',
-    endTime: ''
-  })
+    flightTypeId: '4ae631ab-4081-4d1d-869d-9c5e6be7b2cb',
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    voucherNumber: '',
+    description: ''
+  });
+
+  // Add these new states at the top of your component
+  const [isValidating, setIsValidating] = useState(false);
+  const [validationStatus, setValidationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   // Fetch aircraft
   const { data: aircraft } = useQuery({
@@ -103,7 +166,7 @@ export function NewBookingModal({ open, onClose }: NewBookingModalProps) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('aircraft')
-        .select('id, registration')
+        .select('id, registration, prioritise')
         .eq('status', 'Active')
       if (error) throw error
       return data
@@ -193,18 +256,33 @@ export function NewBookingModal({ open, onClose }: NewBookingModalProps) {
     }
   }
 
+  // Add selected user state
+  const [selectedUser, setSelectedUser] = useState<SelectedUser | null>(null);
+  
+  // Update the handleUserSelect function
+  const handleUserSelect = (user: User) => {
+    setSelectedUser(user);
+    setMemberBooking(prev => ({
+      ...prev,
+      memberId: user.id
+    }));
+    setSearchTerm(`${user.first_name} ${user.last_name}`);
+    setSearchResults([]);
+  };
+
+  // Update the handleMemberBookingSubmit function
   const handleMemberBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!memberBooking.aircraftId) {
-      console.error('Missing required fields')
+    if (!memberBooking.aircraftId || !memberBooking.memberId || !selectedUser) {
+      toast.error('Please select both member and aircraft')
       return
     }
 
     setIsLoading(true)
 
     try {
-      const bookingData = {
+      const supabaseBookingData = {
         user_id: memberBooking.memberId,
         aircraft_id: memberBooking.aircraftId,
         instructor_id: memberBooking.instructorId || null,
@@ -216,74 +294,123 @@ export function NewBookingModal({ open, onClose }: NewBookingModalProps) {
         status: 'confirmed' as const
       }
 
-      console.log('Submitting booking data:', bookingData)
-
       const { data, error } = await supabase
         .from('bookings')
-        .insert([bookingData])
+        .insert([supabaseBookingData])
         .select()
 
-      if (error) {
-        console.error('Error creating booking:', error)
-        throw error
+      if (error) throw error
+      console.log('Created booking:', data)
+
+      queryClient.invalidateQueries({ queryKey: ['bookings'] })
+      
+      // Use selectedUser instead of searching through searchResults
+      const emailData: EmailBookingData = {
+        memberName: `${selectedUser.first_name} ${selectedUser.last_name}`,
+        memberEmail: 'callum.soutar@me.com', // Hardcoded for development
+        bookingDate: memberBooking.startTime.toISOString(),
+        aircraftReg: aircraft?.find((a: Aircraft) => a.id === memberBooking.aircraftId)?.registration || '',
+        instructorName: instructors?.find((i: Instructor) => i.id === memberBooking.instructorId)?.name,
+        startTime: format(memberBooking.startTime, 'HH:mm'),
+        endTime: format(memberBooking.endTime, 'HH:mm'),
+        flightType: flightTypes?.find((t: FlightType) => t.id === memberBooking.flightTypeId)?.name || ''
+      };
+      
+      console.log('Attempting to send email with data:', emailData);
+      const emailResult = await sendBookingConfirmation(emailData);
+      console.log('Email send result:', emailResult);
+
+      if (!emailResult.success) {
+        throw new Error('Failed to send confirmation email');
       }
 
-      console.log('Booking created:', data)
-      queryClient.invalidateQueries({ queryKey: ['bookings'] })
-      toast.success('Booking successfully created')
-      onClose()
+      toast.success('Booking successfully created');
+      onClose();
+
     } catch (error) {
-      console.error('Error in handleMemberBookingSubmit:', error)
-      toast.error('Failed to create booking')
+      console.error('Error in handleMemberBookingSubmit:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to create booking');
     } finally {
       setIsLoading(false)
     }
   }
 
   const handleTrialFlightSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
+    e.preventDefault();
+    setIsLoading(true);
 
     try {
-      const { data: trialFlightType } = await supabase
-        .from('flight_types')
-        .select('id')
-        .eq('name', 'Trial Flight')
-        .single()
-
-      if (!trialFlightType) {
-        throw new Error('Trial flight type not found')
+      // Validate required fields
+      if (!trialBooking.firstName || !trialBooking.lastName) {
+        toast.error('First name and last name are required');
+        return;
       }
 
+      // Generate a user number (you might want to adjust this format)
+      const timestamp = Date.now().toString().slice(-6);
+      const userNumber = `TF${timestamp}`;
+
+      // First, create the user record with the correct fields
+      const { data: newUser, error: userError } = await supabase
+        .from('users')
+        .insert([{
+          first_name: trialBooking.firstName,
+          last_name: trialBooking.lastName,
+          name: `${trialBooking.firstName} ${trialBooking.lastName}`,
+          email: trialBooking.email,
+          user_number: userNumber,
+          status: 'Inactive',
+          join_date: new Date().toISOString(),
+          phone: trialBooking.phone || null,
+          is_member: false,
+          created_at: new Date().toISOString()
+        }])
+        .select()
+        .single();
+
+      if (userError) {
+        console.error('User creation error:', userError);
+        throw new Error('Failed to create user record');
+      }
+      
+      if (!newUser) throw new Error('Failed to create user');
+
+      // Then, create the booking record
       const bookingData = {
-        customer_name: trialBooking.customerName,
-        customer_email: trialBooking.customerEmail,
-        customer_phone: trialBooking.customerPhone,
+        user_id: newUser.id,
         aircraft_id: trialBooking.aircraftId,
         instructor_id: trialBooking.instructorId,
-        start_time: trialBooking.startTime,
-        end_time: trialBooking.endTime,
-        flight_type_id: trialFlightType.id,
-        status: 'confirmed' as const
+        start_time: trialBooking.startTime.toISOString(),
+        end_time: trialBooking.endTime.toISOString(),
+        flight_type_id: trialBooking.flightTypeId,
+        description: trialBooking.description,
+        status: 'confirmed',
+        voucher: trialBooking.voucherNumber || null,
+        created_at: new Date().toISOString()
+      };
+
+      const { error: bookingError } = await supabase
+        .from('bookings')
+        .insert([bookingData]);
+
+      if (bookingError) {
+        console.error('Booking creation error:', bookingError);
+        throw new Error('Failed to create booking record');
       }
 
-      const { error } = await supabase
-        .from('bookings')
-        .insert([bookingData])
-        .select()
+      // Success! Invalidate queries and close modal
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      toast.success('Trial flight booking created successfully');
+      onClose();
 
-      if (error) throw error
-
-      queryClient.invalidateQueries({ queryKey: ['bookings'] })
-      toast.success('Booking successfully created')
-      onClose()
     } catch (error) {
-      console.error('Error creating trial booking:', error)
-      toast.error('Failed to create trial booking')
+      console.error('Error creating trial booking:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to create trial booking');
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   // Add this function to search users
   const searchUsers = async (term: string) => {
@@ -311,12 +438,24 @@ export function NewBookingModal({ open, onClose }: NewBookingModalProps) {
     searchUsers(term)
   }
 
-  // Handle user selection
-  const handleUserSelect = (user: User) => {
-    setMemberBooking(prev => ({ ...prev, memberId: user.id }))
-    setSearchTerm(`${user.first_name} ${user.last_name}`)
-    setSearchResults([])
-  }
+  // Reset selected user when modal closes
+  useEffect(() => {
+    if (!open) {
+      setSelectedUser(null);
+      setSearchTerm('');
+      setSearchResults([]);
+      setMemberBooking(prev => ({
+        ...prev,
+        memberId: ''
+      }));
+      setTrialBooking(prev => ({
+        ...prev,
+        startTime: setMinutes(setHours(new Date(), 9), 0),
+        endTime: setMinutes(setHours(new Date(), 11), 0),
+        flightTypeId: '4ae631ab-4081-4d1d-869d-9c5e6be7b2cb'
+      }));
+    }
+  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -492,7 +631,7 @@ export function NewBookingModal({ open, onClose }: NewBookingModalProps) {
 
                   <div className="space-y-1.5">
                     <Label className="text-sm">Instructor</Label>
-                    <Select value={memberBooking.instructorId} onValueChange={(value) => setMemberBooking(prev => ({ ...prev, instructorId: value }))} >
+                    <Select value={memberBooking.instructorId} onValueChange={(value: string) => setMemberBooking(prev => ({ ...prev, instructorId: value }))} >
                       <SelectTrigger className="h-9 bg-white">
                         <SelectValue placeholder="Select instructor" />
                       </SelectTrigger>
@@ -512,7 +651,7 @@ export function NewBookingModal({ open, onClose }: NewBookingModalProps) {
 
                   <div className="space-y-1.5">
                     <Label className="text-sm">Aircraft</Label>
-                    <Select value={memberBooking.aircraftId} onValueChange={(value) => setMemberBooking(prev => ({ ...prev, aircraftId: value }))} >
+                    <Select value={memberBooking.aircraftId} onValueChange={(value: string) => setMemberBooking(prev => ({ ...prev, aircraftId: value }))} >
                       <SelectTrigger className="h-9 bg-white">
                         <SelectValue placeholder="Select aircraft" />
                       </SelectTrigger>
@@ -523,7 +662,21 @@ export function NewBookingModal({ open, onClose }: NewBookingModalProps) {
                             value={a.id}
                             className="hover:bg-gray-100"
                           >
-                            {a.registration}
+                            <div className="flex items-center gap-2">
+                              <span>{a.registration}</span>
+                              {a.prioritise && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <AlertCircle className="h-4 w-4 text-red-500" />
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Please prioritise scheduling this aircraft</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
+                            </div>
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -532,7 +685,7 @@ export function NewBookingModal({ open, onClose }: NewBookingModalProps) {
 
                   <div className="space-y-1.5">
                     <Label className="text-sm">Flight Type</Label>
-                    <Select value={memberBooking.flightTypeId} onValueChange={(value) => setMemberBooking(prev => ({ ...prev, flightTypeId: value }))} >
+                    <Select value={memberBooking.flightTypeId} onValueChange={(value: string) => setMemberBooking(prev => ({ ...prev, flightTypeId: value }))} >
                       <SelectTrigger className="h-9 bg-white">
                         <SelectValue placeholder="Select flight type" />
                       </SelectTrigger>
@@ -556,7 +709,7 @@ export function NewBookingModal({ open, onClose }: NewBookingModalProps) {
               <div className="space-y-3">
                 <div className="space-y-1.5">
                   <Label className="text-sm">Lesson (Optional)</Label>
-                  <Select value={memberBooking.lessonId} onValueChange={(value) => setMemberBooking(prev => ({ ...prev, lessonId: value }))} >
+                  <Select value={memberBooking.lessonId} onValueChange={(value: string) => setMemberBooking(prev => ({ ...prev, lessonId: value }))} >
                     <SelectTrigger className="h-9 bg-white">
                       <SelectValue placeholder="Select lesson" />
                     </SelectTrigger>
@@ -625,7 +778,381 @@ export function NewBookingModal({ open, onClose }: NewBookingModalProps) {
 
           <TabsContent value="trial">
             <form onSubmit={handleTrialFlightSubmit}>
-              {/* Add trial flight form fields similar to member booking */}
+              <div className="space-y-6">
+                {/* Date and Time Section */}
+                <div className="bg-gray-50 p-3 rounded-lg space-y-3">
+                  <h3 className="font-medium text-sm text-gray-700">Date & Time</h3>
+                  
+                  {/* Start Date/Time Row */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-sm">Start Date</Label>
+                      <div className="relative">
+                        <DatePicker
+                          selected={trialBooking.startTime}
+                          onChange={(date) => {
+                            if (date) {
+                              setTrialBooking(prev => ({
+                                ...prev,
+                                startTime: date,
+                                endTime: addHours(date, 1)
+                              }));
+                            }
+                          }}
+                          dateFormat="dd MMM yyyy"
+                          className="w-full h-9 rounded-md border border-input bg-white px-3 py-1 text-sm"
+                          minDate={new Date()}
+                        />
+                        <CalendarIcon className="absolute right-2 top-2.5 h-4 w-4 text-gray-500 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-sm">Start Time</Label>
+                      <Select
+                        value={format(trialBooking.startTime, 'HH:mm')}
+                        onValueChange={(value: string) => {
+                          const [hours, minutes] = value.split(':').map(Number);
+                          const newStartTime = setMinutes(setHours(trialBooking.startTime, hours), minutes);
+                          setTrialBooking(prev => ({
+                            ...prev,
+                            startTime: newStartTime,
+                            endTime: addHours(newStartTime, 1)
+                          }));
+                        }}
+                      >
+                        <SelectTrigger className="h-9 bg-white">
+                          <SelectValue placeholder="Select time" />
+                        </SelectTrigger>
+                        <SelectContent 
+                          className="bg-white max-h-[200px] overflow-y-auto"
+                          position="popper"
+                          sideOffset={4}
+                        >
+                          {timeOptions.map((time: string) => (
+                            <SelectItem 
+                              key={time} 
+                              value={time}
+                              className="hover:bg-gray-100"
+                            >
+                              {time}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* End Date/Time Row */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-sm">End Date</Label>
+                      <div className="relative">
+                        <DatePicker
+                          selected={trialBooking.endTime}
+                          onChange={(date) => {
+                            if (date) {
+                              setTrialBooking(prev => ({
+                                ...prev,
+                                endTime: date
+                              }));
+                            }
+                          }}
+                          dateFormat="dd MMM yyyy"
+                          className="w-full h-9 rounded-md border border-input bg-white px-3 py-1 text-sm"
+                          minDate={trialBooking.startTime}
+                        />
+                        <CalendarIcon className="absolute right-2 top-2.5 h-4 w-4 text-gray-500 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-sm">End Time</Label>
+                      <Select
+                        value={format(trialBooking.endTime, 'HH:mm')}
+                        onValueChange={(value: string) => {
+                          const [hours, minutes] = value.split(':').map(Number);
+                          const newEndTime = setMinutes(setHours(trialBooking.endTime, hours), minutes);
+                          setTrialBooking(prev => ({
+                            ...prev,
+                            endTime: newEndTime
+                          }));
+                        }}
+                      >
+                        <SelectTrigger className="h-9 bg-white">
+                          <SelectValue placeholder="Select time" />
+                        </SelectTrigger>
+                        <SelectContent 
+                          className="bg-white max-h-[200px] overflow-y-auto"
+                          position="popper"
+                          sideOffset={4}
+                        >
+                          {timeOptions
+                            .filter((time: string) => 
+                              trialBooking.startTime.getTime() !== trialBooking.endTime.getTime() || 
+                              time > format(trialBooking.startTime, 'HH:mm')
+                            )
+                            .map((time: string) => (
+                              <SelectItem 
+                                key={time} 
+                                value={time}
+                                className="hover:bg-gray-100"
+                              >
+                                {time}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Flight Details Section */}
+                <div className="bg-gray-50 p-3 rounded-lg space-y-3">
+                  <h3 className="font-medium text-sm text-gray-700">Flight Details</h3>
+                  
+                  <div className="space-y-3">
+                    {/* Aircraft and Instructor on same row */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-sm">Aircraft</Label>
+                        <Select
+                          value={trialBooking.aircraftId}
+                          onValueChange={(value) => setTrialBooking(prev => ({ ...prev, aircraftId: value }))}
+                        >
+                          <SelectTrigger className="bg-white">
+                            <SelectValue placeholder="Select aircraft" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-white">
+                            {aircraft?.map((a) => (
+                              <SelectItem key={a.id} value={a.id}>
+                                {a.registration}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-sm">Instructor</Label>
+                        <Select
+                          value={trialBooking.instructorId}
+                          onValueChange={(value) => setTrialBooking(prev => ({ ...prev, instructorId: value }))}
+                        >
+                          <SelectTrigger className="bg-white">
+                            <SelectValue placeholder="Select instructor" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-white">
+                            {instructors?.map((instructor) => (
+                              <SelectItem key={instructor.id} value={instructor.id}>
+                                {instructor.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    {/* Flight Type remains full width */}
+                    <div className="space-y-1.5">
+                      <Label className="text-sm">Flight Type</Label>
+                      <Select
+                        value={trialBooking.flightTypeId}
+                        onValueChange={(value) => setTrialBooking(prev => ({ ...prev, flightTypeId: value }))}
+                      >
+                        <SelectTrigger className="bg-white">
+                          <SelectValue placeholder="Select flight type" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white">
+                          {flightTypes?.map((type) => (
+                            <SelectItem key={type.id} value={type.id}>
+                              {type.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Contact Details Section */}
+                <div className="bg-gray-50 p-3 rounded-lg space-y-3">
+                  <h3 className="font-medium text-sm text-gray-700">Contact Details</h3>
+                  
+                  <div className="space-y-3">
+                    {/* First Name and Last Name row */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-sm">First Name</Label>
+                        <Input
+                          value={trialBooking.firstName}
+                          onChange={(e) => setTrialBooking(prev => ({ ...prev, firstName: e.target.value }))}
+                          placeholder="Enter first name"
+                          className="bg-white"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-sm">Last Name</Label>
+                        <Input
+                          value={trialBooking.lastName}
+                          onChange={(e) => setTrialBooking(prev => ({ ...prev, lastName: e.target.value }))}
+                          placeholder="Enter last name"
+                          className="bg-white"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Email and Phone row */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-sm">Email</Label>
+                        <Input
+                          type="email"
+                          value={trialBooking.email}
+                          onChange={(e) => setTrialBooking(prev => ({ ...prev, email: e.target.value }))}
+                          placeholder="Enter email address"
+                          className="bg-white"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-sm">Phone</Label>
+                        <Input
+                          value={trialBooking.phone}
+                          onChange={(e) => setTrialBooking(prev => ({ ...prev, phone: e.target.value }))}
+                          placeholder="Enter phone number"
+                          className="bg-white"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Voucher Number with Validate button */}
+                    <div className="space-y-1.5">
+                      <Label className="text-sm">Voucher Number</Label>
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <Input
+                            value={trialBooking.voucherNumber}
+                            onChange={(e) => {
+                              setTrialBooking(prev => ({ ...prev, voucherNumber: e.target.value }));
+                              setValidationStatus('idle'); // Reset status on input change
+                            }}
+                            placeholder="Enter voucher number (optional)"
+                            className={cn(
+                              "bg-white pr-10",
+                              validationStatus === 'success' && "border-green-500",
+                              validationStatus === 'error' && "border-red-500"
+                            )}
+                          />
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                            {validationStatus === 'loading' && (
+                              <svg 
+                                className="animate-spin h-5 w-5 text-blue-500" 
+                                xmlns="http://www.w3.org/2000/svg" 
+                                fill="none" 
+                                viewBox="0 0 24 24"
+                              >
+                                <circle 
+                                  className="opacity-25" 
+                                  cx="12" 
+                                  cy="12" 
+                                  r="10" 
+                                  stroke="currentColor" 
+                                  strokeWidth="4"
+                                />
+                                <path 
+                                  className="opacity-75" 
+                                  fill="currentColor" 
+                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                />
+                              </svg>
+                            )}
+                            {validationStatus === 'success' && (
+                              <svg
+                                className="h-5 w-5 text-green-500 animate-check"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M5 13l4 4L19 7"
+                                />
+                              </svg>
+                            )}
+                            {validationStatus === 'error' && (
+                              <svg
+                                className="h-5 w-5 text-red-500"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M6 18L18 6M6 6l12 12"
+                                />
+                              </svg>
+                            )}
+                          </div>
+                        </div>
+                        <Button 
+                          type="button"
+                          variant="outline"
+                          className="bg-blue-600 hover:bg-blue-700 text-white shrink-0"
+                          disabled={isValidating}
+                          onClick={async () => {
+                            if (!trialBooking.voucherNumber) {
+                              toast.error("Please enter a voucher number");
+                              return;
+                            }
+
+                            setIsValidating(true);
+                            setValidationStatus('loading');
+
+                            // Simulate a slight delay for better UX
+                            await new Promise(resolve => setTimeout(resolve, 800));
+
+                            const result = validateVoucher(trialBooking.voucherNumber);
+                            
+                            if (result.valid) {
+                              setValidationStatus('success');
+                              toast.success(result.message);
+                            } else {
+                              setValidationStatus('error');
+                              toast.error(result.message);
+                            }
+
+                            setIsValidating(false);
+                          }}
+                        >
+                          Validate
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Description Section */}
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Description</Label>
+                  <Textarea
+                    value={trialBooking.description}
+                    onChange={(e) => setTrialBooking(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="Add any additional notes..."
+                    className="h-20 bg-white"
+                  />
+                </div>
+
+                {/* Submit Button */}
+                <div className="flex justify-end">
+                  <Button type="submit" className="bg-green-600 hover:bg-green-700 text-white">
+                    {isLoading ? "Saving..." : "Save & Confirm"}
+                  </Button>
+                </div>
+              </div>
             </form>
           </TabsContent>
         </Tabs>

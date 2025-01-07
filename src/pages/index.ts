@@ -1,4 +1,2 @@
-export * from './CreateInvoice'
-export * from './CreateDefect'
-export * from './Layout'
-export * from './Home' 
+export { Layout } from './Layout';
+export { CreateDefect } from './CreateDefect'; 

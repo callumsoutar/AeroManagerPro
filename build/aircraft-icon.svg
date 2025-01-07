@@ -1,0 +1,10 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Main fuselage -->
+  <path d="M16 4L19 14H13L16 4Z" fill="white"/>
+  <!-- Wings -->
+  <path d="M8 12L16 14L24 12L16 16L8 12Z" fill="white"/>
+  <!-- Tail -->
+  <path d="M14 14L16 28L18 14L16 16L14 14Z" fill="white"/>
+  <!-- Tail wings -->
+  <path d="M13 24L16 26L19 24L16 28L13 24Z" fill="white"/>
+</svg> 

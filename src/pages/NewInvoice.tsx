@@ -5,8 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { Button } from "../components/ui/button"
 import { Badge } from "../components/ui/badge"
 import { Input } from "../components/ui/input"
-import { Textarea } from "../components/ui/textarea"
-import { X, Send, Download, Check, Search } from 'lucide-react'
+import { Send, Download, Check, Search, Loader2, ChevronDown, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useChargeables } from '../hooks/useChargeables'
 import { useUsers } from '../hooks/useUsers'
@@ -14,6 +13,17 @@ import { toast, Toaster } from 'sonner'
 import { ChargeableType } from '../data/chargeables'
 import { cn } from "../lib/utils"
 import { useClickOutside } from '../hooks/useClickOutside'
+import { Textarea } from "../components/ui/textarea"
+
+// Add this helper function near the top of the file
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('en-NZ', {
+    style: 'currency',
+    currency: 'NZD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(amount)
+}
 
 // Create a type for the selected user that includes all required fields
 type SelectedUser = {
@@ -123,10 +133,11 @@ export function NewInvoice() {
   const [createdInvoiceId, setCreatedInvoiceId] = useState<string | null>(null)
   const [createdInvoiceNumber, setCreatedInvoiceNumber] = useState<string | null>(null)
   const [memberSearchOpen, setMemberSearchOpen] = useState(false)
-  const [reference, setReference] = useState('')
+  const [reference, setReference] = useState<string>('')
   const [chargeSearchQuery, setChargeSearchQuery] = useState('')
   const [isChargeSearchOpen, setIsChargeSearchOpen] = useState(false)
   const [memberSearchQuery, setMemberSearchQuery] = useState('')
+  const [isNotesExpanded, setIsNotesExpanded] = useState(false)
 
   const chargeSearchRef = useRef<HTMLDivElement>(null)
   const memberSearchRef = useRef<HTMLDivElement>(null)
@@ -211,18 +222,23 @@ export function NewInvoice() {
       console.log('Formatted additional charges:', formattedAdditionalCharges)
 
       // Create invoice record
+      const invoiceData = {
+        user_id: selectedUser,
+        invoice_number: `INV-${Date.now()}`,
+        total_amount: totalAmount,
+        status: 'pending',
+        due_date: dueDate,
+        created_at: new Date().toISOString(),
+        additional_charges_total: totalAmount,
+        additional_charges: formattedAdditionalCharges,
+        reference: reference || null
+      }
+
+      console.log('Formatted invoice data:', invoiceData)
+
       const { data: invoice, error: invoiceError } = await supabase
         .from('invoices')
-        .insert({
-          user_id: selectedUser,
-          total_amount: totalAmount,
-          status: 'pending',
-          due_date: dueDate,
-          created_at: new Date().toISOString(),
-          additional_charges_total: totalAmount,
-          additional_charges: formattedAdditionalCharges,
-          invoice_number: `INV-${Date.now()}` // You might want to implement a proper invoice number generator
-        })
+        .insert(invoiceData)
         .select()
         .single()
 
@@ -278,408 +294,439 @@ export function NewInvoice() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex justify-between items-start mb-8">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-3xl font-bold text-gray-900">
-              New Invoice
-            </h1>
-            <Badge variant="secondary" className={cn(
-              "bg-opacity-20",
-              createdInvoiceId ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
+    <div className="min-h-screen bg-gray-50/30 py-8 px-6">
+      {/* Header Section */}
+      <div className="max-w-7xl mx-auto mb-8">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <h1 className="text-3xl font-semibold text-gray-900">New Invoice</h1>
+            <p className="text-gray-500">Create a new invoice for a member or flight</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Badge variant="outline" className={cn(
+              "px-3 py-1.5",
+              createdInvoiceId ? "bg-green-50 text-green-700 border-green-200" : 
+              "bg-blue-50 text-blue-700 border-blue-200"
             )}>
-              {createdInvoiceId ? "Approved" : "Draft"}
+              {createdInvoiceId ? "Invoice Created" : "Draft"}
             </Badge>
+            <Button 
+              variant="outline" 
+              onClick={() => navigate('/invoices')}
+              className="border-gray-300"
+            >
+              Cancel
+            </Button>
           </div>
         </div>
-        <Button variant="outline" onClick={() => navigate('/invoices')}>
-          Cancel
-        </Button>
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
-        {/* Left Column - Invoice Details */}
-        <div className="col-span-2 space-y-6">
-          {/* Member Search */}
-          <div className="bg-white rounded-xl shadow-sm border p-4">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-1 h-6 bg-blue-500 rounded-full"></div>
-              <h2 className="text-lg font-semibold text-gray-900">Invoice Details</h2>
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto grid grid-cols-12 gap-6">
+        {/* Left Column - Form Fields */}
+        <div className="col-span-7 space-y-6">
+          {/* Member Details Card */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-visible">
+            <div className="border-b border-gray-200 bg-gray-50 p-4">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-1 bg-blue-500 rounded-full" />
+                <h2 className="text-lg font-semibold text-gray-900">Member Details</h2>
+              </div>
             </div>
             
-            <div className="grid grid-cols-2 gap-4">
+            <div className="p-6 space-y-6 overflow-visible">
               {/* Member Search */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-500">Member</label>
-                <div className="relative" ref={memberSearchRef}>
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
-                  <Input
-                    value={memberSearchQuery}
-                    onChange={(e) => {
-                      setMemberSearchQuery(e.target.value)
-                      setMemberSearchOpen(e.target.value.length >= 2)
-                    }}
-                    onFocus={() => {
-                      if (memberSearchQuery.length >= 2) {
-                        setMemberSearchOpen(true)
-                      }
-                    }}
-                    placeholder={
-                      selectedUserDetails 
+              <div className="grid grid-cols-2 gap-6 overflow-visible">
+                <div className="relative overflow-visible" ref={memberSearchRef}>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Member
+                  </label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Input
+                      value={memberSearchQuery}
+                      onChange={(e) => {
+                        setMemberSearchQuery(e.target.value)
+                        setMemberSearchOpen(e.target.value.length >= 2)
+                      }}
+                      placeholder={selectedUserDetails 
                         ? `Selected: ${selectedUserDetails.first_name} ${selectedUserDetails.last_name}`
-                        : "Search members..."
-                    }
-                    className={cn(
-                      "pl-9 w-full bg-white",
-                      selectedUserDetails && !memberSearchQuery && "text-gray-500"
-                    )}
-                  />
+                        : "Search members by name or email..."}
+                      className="pl-9 bg-white border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                    />
+                  </div>
+                  
+                  {/* Member Search Results Dropdown */}
                   {memberSearchOpen && memberSearchQuery.length >= 2 && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg">
-                      <div className="max-h-[300px] overflow-auto p-1">
+                    <div 
+                      className="absolute z-[100] bg-white rounded-lg border border-gray-200 shadow-lg"
+                      style={{
+                        width: memberSearchRef.current?.offsetWidth || 'auto',
+                        top: '100%',
+                        left: 0,
+                        marginTop: '4px',
+                        maxHeight: '300px',
+                        overflow: 'auto'
+                      }}
+                    >
+                      <div className="p-2">
                         {filteredUsers.length === 0 ? (
-                          <div className="p-2 text-sm text-gray-500 text-center">
+                          <div className="p-3 text-sm text-gray-500 text-center">
                             No members found
                           </div>
                         ) : (
-                          <>
-                            {filteredUsers.map((user) => (
-                              <button
-                                key={user.id}
-                                onClick={() => {
-                                  setSelectedUser(user.id)
-                                  setMemberSearchQuery('')
-                                  setMemberSearchOpen(false)
-                                }}
-                                className={cn(
-                                  "w-full text-left px-3 py-2 hover:bg-gray-50 rounded flex items-center justify-between group",
-                                  selectedUser === user.id && "bg-green-50"
-                                )}
-                              >
-                                <div className="flex flex-col">
-                                  <span className="font-medium">
+                          filteredUsers.map((user) => (
+                            <button
+                              key={user.id}
+                              onClick={() => {
+                                setSelectedUser(user.id)
+                                setMemberSearchQuery('')
+                                setMemberSearchOpen(false)
+                              }}
+                              className={cn(
+                                "w-full text-left px-4 py-3 rounded-lg transition-colors",
+                                "hover:bg-gray-50 focus:outline-none focus:bg-gray-50",
+                                selectedUser === user.id && "bg-blue-50"
+                              )}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="font-medium text-gray-900">
                                     {user.first_name} {user.last_name}
-                                  </span>
+                                  </p>
                                   {user.email && (
-                                    <span className="text-sm text-gray-500">
-                                      {user.email}
-                                    </span>
+                                    <p className="text-sm text-gray-500">{user.email}</p>
                                   )}
                                 </div>
-                                <Check 
-                                  className={cn(
-                                    "h-4 w-4",
-                                    selectedUser === user.id ? "text-green-600" : "text-transparent"
-                                  )}
-                                />
-                              </button>
-                            ))}
-                          </>
+                                <Check className={cn(
+                                  "h-4 w-4",
+                                  selectedUser === user.id ? "text-blue-600" : "text-transparent"
+                                )} />
+                              </div>
+                            </button>
+                          ))
                         )}
                       </div>
                     </div>
                   )}
                 </div>
-                {selectedUserDetails && (
-                  <div className="text-sm text-green-600 mt-1 flex items-center gap-1">
-                    <Check className="h-3 w-3" />
-                    Selected: {selectedUserDetails.first_name} {selectedUserDetails.last_name}
+
+                {/* Reference Field */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Reference (Optional)
+                  </label>
+                  <Input
+                    value={reference}
+                    onChange={(e) => setReference(e.target.value)}
+                    placeholder="e.g., Flight Training, Membership"
+                    className="bg-white border-gray-200"
+                  />
+                </div>
+              </div>
+
+              {/* Bill To section remains the same */}
+              {selectedUserDetails && (
+                <div className="mt-4 border-t pt-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-medium text-gray-900">Customer Details</h3>
+                    <Badge variant="outline" className="text-blue-600 bg-blue-50">
+                      Bill To
+                    </Badge>
                   </div>
-                )}
-              </div>
+                  
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-500">Name:</span>{' '}
+                        <span className="font-medium">
+                          {selectedUserDetails.first_name} {selectedUserDetails.last_name}
+                        </span>
+                      </div>
+                      
+                      <div>
+                        <span className="text-gray-500">Email:</span>{' '}
+                        <span>{selectedUserDetails.email || '-'}</span>
+                      </div>
+                      
+                      {selectedUserDetails.phone && (
+                        <div>
+                          <span className="text-gray-500">Phone:</span>{' '}
+                          <span>{selectedUserDetails.phone}</span>
+                        </div>
+                      )}
 
-              {/* Invoice Date */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-500">Invoice Date</label>
-                <Input
-                  type="date"
-                  value={invoiceDate}
-                  onChange={(e) => setInvoiceDate(e.target.value)}
-                />
-              </div>
+                      {(selectedUserDetails.address || selectedUserDetails.city) && (
+                        <div className="col-span-2">
+                          <span className="text-gray-500">Address:</span>{' '}
+                          <span>
+                            {[
+                              selectedUserDetails.address,
+                              selectedUserDetails.city
+                            ].filter(Boolean).join(', ')}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
-              {/* Reference Number */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-500">Reference</label>
-                <Input
-                  type="text"
-                  placeholder="Enter reference number"
-                  value={reference}
-                  onChange={(e) => setReference(e.target.value)}
-                />
-              </div>
-
-              {/* Due Date */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-500">Due Date</label>
-                <Input
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                />
+              {/* Invoice Dates Grid */}
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Invoice Date
+                  </label>
+                  <Input
+                    type="date"
+                    value={invoiceDate}
+                    onChange={(e) => setInvoiceDate(e.target.value)}
+                    className="bg-white border-gray-200"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Due Date
+                  </label>
+                  <Input
+                    type="date"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    className="bg-white border-gray-200"
+                  />
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Customer Details Section */}
-          {selectedUserDetails && (
-            <div className="mt-4 border-t pt-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-medium text-gray-900">Customer Details</h3>
-                <Badge variant="outline" className="text-blue-600 bg-blue-50">
-                  Bill To
-                </Badge>
-              </div>
-              
-              <div className="bg-gray-50 rounded-lg p-3">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-gray-500">Name:</span>{' '}
-                    <span className="font-medium">
-                      {selectedUserDetails.first_name} {selectedUserDetails.last_name}
-                    </span>
-                  </div>
-                  
-                  <div>
-                    <span className="text-gray-500">Email:</span>{' '}
-                    <span>{selectedUserDetails.email || '-'}</span>
-                  </div>
-                  
-                  {selectedUserDetails.phone && (
-                    <div>
-                      <span className="text-gray-500">Phone:</span>{' '}
-                      <span>{selectedUserDetails.phone}</span>
-                    </div>
-                  )}
-
-                  {(selectedUserDetails.address || selectedUserDetails.city) && (
-                    <div className="col-span-2">
-                      <span className="text-gray-500">Address:</span>{' '}
-                      <span>
-                        {[
-                          selectedUserDetails.address,
-                          selectedUserDetails.city
-                        ].filter(Boolean).join(', ')}
-                      </span>
-                    </div>
-                  )}
-                </div>
+          {/* Line Items Card */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-visible">
+            <div className="border-b border-gray-200 bg-gray-50 p-4">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-1 bg-purple-500 rounded-full" />
+                <h2 className="text-lg font-semibold text-gray-900">Line Items</h2>
               </div>
             </div>
-          )}
-
-          {/* Charge Search Integrated */}
-          <div className="bg-white rounded-xl shadow-sm border p-4">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-1 h-6 bg-green-500 rounded-full"></div>
-              <h2 className="text-lg font-semibold text-gray-900">Add Charges</h2>
-            </div>
-
-            <div className="space-y-4">
-              <div className="relative" ref={chargeSearchRef}>
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
+            
+            <div className="p-6 overflow-visible">
+              <div className="relative overflow-visible" ref={chargeSearchRef}>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Add Items
+                </label>
                 <Input
                   value={chargeSearchQuery}
                   onChange={(e) => {
                     setChargeSearchQuery(e.target.value)
                     setIsChargeSearchOpen(true)
                   }}
-                  onFocus={() => setIsChargeSearchOpen(true)}
-                  placeholder="Search for charges..."
-                  className="pl-9 w-full bg-white"
+                  placeholder="Search for items..."
+                  className="w-full bg-white border-gray-200"
                 />
-                {isChargeSearchOpen && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg">
-                    <div className="max-h-[300px] overflow-auto p-1">
-                      {filteredCharges.length === 0 ? (
-                        <div className="p-2 text-sm text-gray-500 text-center">
-                          No charges found
-                        </div>
-                      ) : (
-                        filteredCharges.map((charge) => (
-                          <button
-                            key={charge.id}
-                            onClick={() => {
-                              setLineItems(prev => [...prev, {
-                                id: charge.id,
-                                name: charge.name,
-                                amount: charge.amount,
-                                type: charge.type,
-                                quantity: 1
-                              }])
-                              // Close dropdown after selection
-                              setIsChargeSearchOpen(false)
-                            }}
-                            className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded flex items-center justify-between group"
-                          >
-                            <div>
-                              <span className="font-medium">{charge.name}</span>
-                              <span className="ml-2 text-sm text-gray-500">
-                                ({charge.type})
-                              </span>
-                            </div>
-                            <span className="font-medium text-green-600">
-                              ${charge.amount.toFixed(2)}
-                            </span>
-                          </button>
-                        ))
-                      )}
+                
+                {isChargeSearchOpen && filteredCharges.length > 0 && (
+                  <div 
+                    className="absolute z-[100] bg-white rounded-lg border border-gray-200 shadow-lg"
+                    style={{
+                      width: chargeSearchRef.current?.offsetWidth || 'auto',
+                      top: '100%',
+                      left: 0,
+                      marginTop: '4px',
+                      maxHeight: '300px',
+                      overflow: 'auto'
+                    }}
+                  >
+                    <div className="p-2">
+                      {filteredCharges.map((charge) => (
+                        <button
+                          key={charge.id}
+                          onClick={() => {
+                            setLineItems(prev => [...prev, {
+                              id: charge.id,
+                              name: charge.name,
+                              amount: charge.amount,
+                              type: charge.type,
+                              quantity: 1
+                            }])
+                            setIsChargeSearchOpen(false)
+                          }}
+                          className="w-full text-left px-4 py-3 rounded-lg hover:bg-gray-50"
+                        >
+                          <div className="flex justify-between items-center">
+                            <span>{charge.name}</span>
+                            <span className="text-green-600">{formatCurrency(charge.amount)}</span>
+                          </div>
+                        </button>
+                      ))}
                     </div>
                   </div>
                 )}
               </div>
-
-              {/* Added Charges Preview */}
-              {lineItems.length > 0 && (
-                <div className="mt-4">
-                  <div className="text-sm font-medium text-gray-500 mb-2">Added Charges</div>
-                  <div className="space-y-2">
-                    {Object.entries(
-                      lineItems.reduce((acc, item) => {
-                        if (!acc[item.type]) acc[item.type] = [];
-                        acc[item.type].push(item);
-                        return acc;
-                      }, {} as Record<string, InvoiceItem[]>)
-                    ).map(([type, items]) => (
-                      <div key={type} className="bg-gray-50 rounded-lg p-2">
-                        <div className="text-xs font-medium text-gray-500 mb-1">{type}</div>
-                        {items.map((item, index) => (
-                          <div 
-                            key={index}
-                            className="flex items-center justify-between text-sm py-1"
-                          >
-                            <span>{item.name}</span>
-                            <div className="flex items-center gap-2">
-                              <span className="text-green-600">
-                                ${(item.amount * item.quantity).toFixed(2)}
-                              </span>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setLineItems(prev => 
-                                  prev.filter((_, idx) => idx !== lineItems.indexOf(item))
-                                )}
-                                className="h-6 w-6 p-0 text-gray-400 hover:text-red-500"
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
 
-          {/* Notes */}
-          <div className="bg-white rounded-xl shadow-sm border p-4">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-1 h-6 bg-purple-500 rounded-full"></div>
-              <h2 className="text-lg font-semibold text-gray-900">Notes</h2>
-            </div>
+          {/* Additional Information Card */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <button
+              onClick={() => setIsNotesExpanded(!isNotesExpanded)}
+              className="w-full border-b border-gray-200 bg-gray-50 p-4"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-1 bg-orange-500 rounded-full" />
+                  <h2 className="text-lg font-semibold text-gray-900">Additional Information</h2>
+                </div>
+                <ChevronDown 
+                  className={cn(
+                    "h-5 w-5 text-gray-500 transition-transform duration-200",
+                    isNotesExpanded && "transform rotate-180"
+                  )} 
+                />
+              </div>
+            </button>
             
-            <Textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Enter any additional notes or payment instructions..."
-              className="min-h-[120px]"
-            />
+            {isNotesExpanded && (
+              <div className="p-6 space-y-4">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Notes
+                  </label>
+                  <Textarea
+                    value={notes}
+                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)}
+                    placeholder="Add any additional notes or payment instructions..."
+                    className="bg-white border-gray-200 min-h-[120px]"
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Right Column - Invoice Summary */}
-        <div className="col-span-1">
-          <div className="bg-white rounded-xl shadow-sm border p-4 sticky top-6">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-1 h-6 bg-amber-500 rounded-full"></div>
-              <h2 className="text-lg font-semibold text-gray-900">Invoice Summary</h2>
+        <div className="col-span-5">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 sticky top-6">
+            <div className="border-b border-gray-200 bg-gray-50 p-4">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-1 bg-green-500 rounded-full" />
+                <h2 className="text-lg font-semibold text-gray-900">Invoice Summary</h2>
+              </div>
             </div>
 
-            {/* Line Items */}
-            <div className="space-y-4">
-              {lineItems.length > 0 ? (
-                <div className="border rounded-lg overflow-hidden">
-                  <table className="w-full">
-                    <thead className="bg-gray-50">
-                      <tr className="text-xs font-medium text-gray-500">
-                        <th className="px-3 py-2 text-left">Item</th>
-                        <th className="px-2 py-2 text-center w-16">Qty</th>
-                        <th className="px-2 py-2 text-right w-20">Amount</th>
-                        <th className="w-8"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {lineItems.map((item, index) => (
-                        <tr key={index} className="text-sm">
-                          <td className="px-3 py-2">{item.name}</td>
-                          <td className="px-2 py-2">
+            <div className="p-6 space-y-6">
+              {/* Line Items Table */}
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-2 px-4">
+                      Item
+                    </th>
+                    <th className="text-right text-xs font-medium text-gray-500 uppercase tracking-wider py-2 px-4">
+                      Qty
+                    </th>
+                    <th className="text-right text-xs font-medium text-gray-500 uppercase tracking-wider py-2 px-4">
+                      Amount
+                    </th>
+                    <th className="w-8"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {lineItems.map((item, index) => (
+                    <tr key={index} className="text-sm">
+                      <td className="py-2 px-4">
+                        <div className="font-medium text-gray-900">{item.name}</div>
+                        <div className="text-gray-500 text-xs">{item.type}</div>
+                      </td>
+                      <td className="py-2 px-4">
+                        <div className="flex justify-end">
+                          <Input
+                            type="number"
+                            min="1"
+                            value={item.quantity}
+                            onChange={(e) => {
+                              const quantity = parseInt(e.target.value) || 1;
+                              setLineItems(prev => prev.map(i => 
+                                i.id === item.id ? { ...i, quantity } : i
+                              ));
+                            }}
+                            className="h-8 w-16 text-right text-sm"
+                          />
+                        </div>
+                      </td>
+                      <td className="py-2 px-4">
+                        <div className="flex justify-end">
+                          <div className="relative w-20">
+                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500">$</span>
                             <Input
                               type="number"
-                              min="1"
-                              value={item.quantity}
+                              min="0"
+                              step="1"
+                              value={item.amount}
                               onChange={(e) => {
-                                const qty = parseInt(e.target.value) || 1
-                                setLineItems(prev => prev.map((i, idx) => 
-                                  idx === index ? { ...i, quantity: qty } : i
-                                ))
+                                const amount = parseFloat(e.target.value) || 0;
+                                setLineItems(prev => prev.map(i => 
+                                  i.id === item.id ? { ...i, amount } : i
+                                ));
                               }}
-                              className="h-8 w-16 text-center"
+                              className="h-8 w-20 text-right text-sm pl-6"
                             />
-                          </td>
-                          <td className="px-2 py-2 text-right">
-                            ${(item.amount * item.quantity).toFixed(2)}
-                          </td>
-                          <td className="px-2 py-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setLineItems(prev => prev.filter((_, idx) => idx !== index))}
-                              className="h-8 w-8 p-0"
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  No items added yet
-                </div>
-              )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-2 px-4">
+                        <button
+                          onClick={() => {
+                            setLineItems(prev => prev.filter(i => i.id !== item.id));
+                          }}
+                          className="text-gray-400 hover:text-red-600 transition-colors"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {lineItems.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="py-8 text-center text-gray-500 text-sm">
+                        No items added yet
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
 
-              {/* Total */}
-              <div className="border-t pt-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-lg font-semibold">Total</span>
-                  <span className="text-2xl font-bold text-green-600">
-                    ${totalAmount.toFixed(2)}
-                  </span>
+              {/* Totals Section */}
+              <div className="space-y-3 pt-4 border-t">
+                <div className="flex justify-between text-gray-600">
+                  <span>Subtotal</span>
+                  <span>{formatCurrency(totalAmount)}</span>
+                </div>
+                <div className="flex justify-between font-semibold text-lg">
+                  <span>Total</span>
+                  <span className="text-green-600">{formatCurrency(totalAmount)}</span>
                 </div>
               </div>
 
               {/* Action Buttons */}
-              <div className="space-y-3 pt-4">
+              <div className="space-y-3 pt-6">
                 <Button 
-                  className="w-full bg-green-600 hover:bg-green-700"
+                  className="w-full bg-green-600 hover:bg-green-700 h-11"
                   onClick={handleCreateInvoice}
                   disabled={isSubmitting}
                 >
-                  {isSubmitting ? 'Creating...' : 'Create Invoice'}
+                  {isSubmitting ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Creating Invoice...
+                    </div>
+                  ) : 'Create Invoice'}
                 </Button>
                 
                 {createdInvoiceId && (
                   <>
                     <Button
                       variant="outline"
-                      className="w-full"
+                      className="w-full h-11"
                       onClick={() => generateInvoicePDF(createdInvoiceId, createdInvoiceNumber || '')}
                     >
                       <Download className="mr-2 h-4 w-4" />
@@ -687,9 +734,8 @@ export function NewInvoice() {
                     </Button>
                     <Button
                       variant="outline"
-                      className="w-full"
+                      className="w-full h-11"
                       onClick={() => {
-                        // Implement send logic here
                         toast.info('Send functionality coming soon')
                       }}
                     >
@@ -703,20 +749,7 @@ export function NewInvoice() {
           </div>
         </div>
       </div>
-
-      {createdInvoiceId && (
-        <div id="invoice-content" className="hidden">
-          <div className="p-6 max-w-4xl mx-auto">
-            <div className="bg-white rounded-xl shadow-sm border p-6 mb-6">
-              {/* Invoice template content */}
-              <h1 className="text-2xl font-bold mb-4">Invoice #{createdInvoiceNumber}</h1>
-              {/* Add more invoice template content here */}
-            </div>
-          </div>
-        </div>
-      )}
-
-      <Toaster richColors />
+      <Toaster />
     </div>
   )
 } 
