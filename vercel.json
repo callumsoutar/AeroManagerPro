@@ -7,12 +7,17 @@
       "config": {
         "distDir": "build"
       }
+    },
+    {
+      "src": "src/pages/api/email.ts",
+      "use": "@vercel/node"
     }
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
+      "src": "/src/pages/api/email",
+      "methods": ["POST", "OPTIONS"],
+      "dest": "src/pages/api/email.ts"
     },
     {
       "src": "/static/(.*)",

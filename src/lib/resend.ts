@@ -1,6 +1,6 @@
 const API_URL = process.env.NODE_ENV === 'production' 
-  ? '/api/email'  // Vercel API route path
-  : 'http://localhost:3001/api/email' // Local development server
+  ? 'https://aero-manager-pro.vercel.app/src/pages/api/email'  // Update this path
+  : 'http://localhost:3001/api/email'
 
 export async function sendBookingConfirmation(bookingData: any) {
   try {
@@ -12,7 +12,6 @@ export async function sendBookingConfirmation(bookingData: any) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(bookingData),
-      credentials: 'same-origin',
       mode: 'cors'
     });
 
