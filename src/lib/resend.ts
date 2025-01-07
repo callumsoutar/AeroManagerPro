@@ -12,7 +12,6 @@ export async function sendBookingConfirmation(bookingData: any) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(bookingData),
-      // Add these options for better error handling
       credentials: 'same-origin',
       mode: 'cors'
     });
