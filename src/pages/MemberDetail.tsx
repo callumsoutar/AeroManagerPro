@@ -33,6 +33,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu"
+import { formatCurrency } from '../lib/utils'
+import { cn } from '../lib/utils'
 
 interface Booking {
   id: string;
@@ -61,16 +63,28 @@ interface Invoice {
   total_amount: number;
 }
 
+interface AccountBalance {
+  user_id: string;
+  current_balance: number;
+  open_invoices: number;
+  total_outstanding: number;
+  last_updated_at: string;
+}
+
 function getStatusColor(status: string) {
   switch (status.toLowerCase()) {
-    case 'flying':
-      return 'bg-blue-100 text-blue-800'
-    case 'complete':
+    case 'paid':
       return 'bg-green-100 text-green-800'
-    case 'confirmed':
-      return 'bg-emerald-100 text-emerald-800'
-    case 'cancelled':
+    case 'unpaid':
+      return 'bg-yellow-100 text-yellow-800'
+    case 'overdue':
       return 'bg-red-100 text-red-800'
+    case 'void':
+      return 'bg-gray-100 text-gray-800'
+    case 'draft':
+      return 'bg-blue-100 text-blue-800'
+    case 'cancelled':
+      return 'bg-gray-100 text-gray-800'
     default:
       return 'bg-gray-100 text-gray-800'
   }
@@ -167,6 +181,78 @@ const MemberDetail = () => {
       return data || []
     }
   })
+
+  // Add this query alongside your other queries
+  const { 
+    data: accountSummary,
+    isLoading: isAccountLoading,
+    error: accountError
+  } = useQuery<AccountBalance>({
+    queryKey: ['account-summary', id],
+    queryFn: async () => {
+      console.log('Fetching account summary for user:', id);
+      
+      try {
+        // Try to get from the view first
+        const { data: viewData, error: viewError } = await supabase
+          .from('user_account_summary')
+          .select('*')
+          .eq('user_id', id)
+          .single();
+
+        if (viewError) {
+          console.log('View error, falling back to manual calculation:', viewError);
+        } else if (viewData) {
+          console.log('Found view data:', viewData);
+          return viewData;
+        }
+
+        // If view doesn't work, calculate manually
+        console.log('Calculating manually...');
+        
+        // Get invoices
+        const { data: invoices, error: invoiceError } = await supabase
+          .from('invoices')
+          .select('id, total_amount, status')
+          .eq('user_id', id);
+
+        if (invoiceError) throw invoiceError;
+
+        // Get payments
+        const { data: payments, error: paymentError } = await supabase
+          .from('payments')
+          .select('amount')
+          .eq('user_id', id)
+          .eq('payment_status', 'completed');
+
+        if (paymentError) throw paymentError;
+
+        // Calculate totals
+        const totalPaid = payments?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
+        const totalInvoiced = invoices?.reduce((sum, i) => sum + (i.total_amount || 0), 0) || 0;
+        const outstanding = invoices
+          ?.filter(inv => inv.status !== 'paid')
+          .reduce((sum, inv) => sum + (inv.total_amount || 0), 0) || 0;
+
+        return {
+          user_id: id,
+          current_balance: totalInvoiced - totalPaid,
+          total_outstanding: outstanding,
+          open_invoices: invoices?.filter(inv => inv.status !== 'paid').length || 0,
+          last_updated_at: new Date().toISOString()
+        };
+      } catch (error) {
+        console.error('Account summary error:', error);
+        throw error;
+      }
+    },
+    enabled: !!id
+  });
+
+  // Add this to see when the data changes
+  React.useEffect(() => {
+    console.log('Account Summary Data:', accountSummary);
+  }, [accountSummary]);
 
   if (isLoading) {
     return (
@@ -815,6 +901,72 @@ const MemberDetail = () => {
 
                   <TabsContent value="account">
                     <div className="space-y-6">
+                      {/* Account Balance Summary */}
+                      <div className="bg-white rounded-lg border p-6">
+                        <div className="flex items-center gap-2 mb-6">
+                          <div className="w-1 h-6 bg-blue-500 rounded-full"></div>
+                          <h2 className="text-lg font-semibold">Account Summary</h2>
+                        </div>
+
+                        {isAccountLoading ? (
+                          <div className="flex justify-center py-4">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
+                          </div>
+                        ) : accountError ? (
+                          <div className="text-center text-red-600 py-4">
+                            Failed to load account summary
+                          </div>
+                        ) : accountSummary ? (
+                          <div className="grid grid-cols-3 gap-6">
+                            {/* Current Balance */}
+                            <div className="bg-gray-50 rounded-lg p-4">
+                              <div className="text-sm text-gray-600 mb-1">Current Balance</div>
+                              <div className={cn(
+                                "text-2xl font-bold",
+                                accountSummary.current_balance > 0 
+                                  ? "text-green-600"
+                                  : accountSummary.current_balance < 0 
+                                    ? "text-red-600"
+                                    : "text-gray-900"
+                              )}>
+                                {formatCurrency(Math.abs(accountSummary.current_balance))}
+                                <span className="text-sm font-normal ml-1">
+                                  {accountSummary.current_balance > 0 ? 'CR' : accountSummary.current_balance < 0 ? 'DR' : ''}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Outstanding Invoices */}
+                            <div className="bg-gray-50 rounded-lg p-4">
+                              <div className="text-sm text-gray-600 mb-1">Open Invoices</div>
+                              <div className="text-2xl font-bold text-gray-900">
+                                {accountSummary.open_invoices}
+                                <span className="text-sm font-normal ml-1">invoices</span>
+                              </div>
+                            </div>
+
+                            {/* Total Outstanding */}
+                            <div className="bg-gray-50 rounded-lg p-4">
+                              <div className="text-sm text-gray-600 mb-1">Total Outstanding</div>
+                              <div className="text-2xl font-bold text-gray-900">
+                                {formatCurrency(accountSummary.total_outstanding)}
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-center text-gray-500 py-4">
+                            No account information available
+                          </div>
+                        )}
+
+                        {accountSummary?.last_updated_at && (
+                          <div className="mt-4 text-sm text-gray-500">
+                            Last updated: {format(new Date(accountSummary.last_updated_at), 'dd MMM yyyy HH:mm')}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Existing Invoice History Table */}
                       <div>
                         <h2 className="text-lg font-semibold mb-4">Account History</h2>
                         {isInvoicesError ? (

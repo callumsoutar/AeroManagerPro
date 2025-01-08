@@ -1,5 +1,5 @@
 import { useLocation, Link } from 'react-router-dom';
-import { LayoutDashboard, Home, Users, Plane, CalendarDays, Receipt, Users2, Building2, Settings } from 'lucide-react';
+import { LayoutDashboard, Home, Users, Plane, CalendarDays, Receipt, Users2, Settings } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export function Sidebar() {
@@ -17,12 +17,6 @@ export function Sidebar() {
       href: '/home',
       icon: Home,
       current: pathname === '/home'
-    },
-    {
-      name: 'Reception',
-      href: '/reception',
-      icon: Building2,
-      current: pathname === '/reception'
     },
     {
       name: 'Aircraft',

@@ -33,3 +33,11 @@ export function generateTimeOptions() {
   }
   return times
 }
+
+export function formatCurrency(amount: number) {
+  return new Intl.NumberFormat('en-NZ', {
+    style: 'currency',
+    currency: 'NZD',
+    minimumFractionDigits: 2
+  }).format(amount)
+}

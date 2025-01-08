@@ -7,12 +7,11 @@
     "@date-io/moment": "^3.2.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
-    "@fullcalendar/core": "6.1.10",
-    "@fullcalendar/daygrid": "6.1.10",
-    "@fullcalendar/react": "6.1.10",
-    "@fullcalendar/resource": "6.1.10",
-    "@fullcalendar/resource-timeline": "6.1.10",
-    "@fullcalendar/timegrid": "6.1.10",
+    "@fullcalendar/core": "^6.1.15",
+    "@fullcalendar/daygrid": "^6.1.15",
+    "@fullcalendar/react": "^6.1.15",
+    "@fullcalendar/resource-timeline": "^6.1.15",
+    "@fullcalendar/timegrid": "^6.1.15",
     "@hookform/resolvers": "^3.9.1",
     "@mui/icons-material": "^5.16.12",
     "@mui/material": "^5.16.12",
@@ -26,7 +25,9 @@
     "@radix-ui/react-progress": "^1.1.1",
     "@radix-ui/react-radio-group": "^1.2.2",
     "@radix-ui/react-select": "^2.1.4",
+    "@radix-ui/react-separator": "^1.1.1",
     "@radix-ui/react-slot": "^1.1.1",
+    "@radix-ui/react-switch": "^1.1.2",
     "@radix-ui/react-tabs": "^1.1.2",
     "@radix-ui/react-tooltip": "^1.1.6",
     "@react-email/components": "^0.0.31",
@@ -70,12 +71,12 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "CI=false react-scripts build && tsc --project tsconfig.server.json",
+    "build": "react-scripts build",
     "build:emails": "tsc --project tsconfig.server.json",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "server": "cross-env NODE_ENV=development ts-node --project tsconfig.server.json server/index.ts",
-    "dev": "react-scripts start"
+    "dev": "concurrently --kill-others \"npm run server\" \"npm run start\""
   },
   "eslintConfig": {
     "extends": [
@@ -96,6 +97,10 @@
     ]
   },
   "devDependencies": {
+    "@babel/core": "^7.26.0",
+    "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
+    "@babel/preset-react": "^7.26.3",
+    "@babel/preset-typescript": "^7.26.0",
     "@shadcn/ui": "^0.0.4",
     "@types/aria-query": "^5.0.4",
     "@types/babel__core": "^7.20.5",
@@ -138,11 +143,12 @@
     "concurrently": "^9.1.2",
     "cross-env": "^7.0.3",
     "postcss": "^8.4.49",
-    "react-refresh": "0.16.0",
     "tailwindcss": "^3.4.17",
-    "ts-node": "^10.9.2",
-    "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
-    "@types/eslint": "^8.56.0",
-    "@vercel/node": "3.0.11"
+    "ts-node": "^10.9.2"
+  },
+  "babel": {
+    "presets": [
+      "react-app"
+    ]
   }
 }

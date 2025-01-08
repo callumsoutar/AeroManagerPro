@@ -14,7 +14,8 @@ import { cn, getFullName } from '../lib/utils'
 import { supabase } from '../lib/supabase'
 import { useChargeables } from '../hooks/useChargeables'
 import { toast, Toaster } from 'sonner'
-import { PaymentCollectionModal } from '../components/modals/PaymentCollectionModal'
+import { PaymentDialog } from '../components/payments/PaymentDialog'
+import { useQueryClient, useQuery } from '@tanstack/react-query'
 
 
 interface FlightTimes {
@@ -60,6 +61,7 @@ const FlightDetailsPage = () => {
   const { id } = useParams<{ id: string }>()
   const { data: booking, isLoading } = useFlightDetails(id!)
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   
   const aircraft = booking?.aircraft
 
@@ -77,7 +79,6 @@ const FlightDetailsPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
   const [createdInvoiceId, setCreatedInvoiceId] = useState<string | null>(null)
-  const [createdInvoiceNumber, setCreatedInvoiceNumber] = useState<string | null>(null)
   const [invoiceAmount, setInvoiceAmount] = useState<number>(0)
   const [isFlightCompleted, setIsFlightCompleted] = useState(false)
   
@@ -305,7 +306,6 @@ const FlightDetailsPage = () => {
 
       // Store invoice details but don't show modal
       setCreatedInvoiceId(invoice.id)
-      setCreatedInvoiceNumber(invoice.invoice_number)
       setInvoiceAmount(invoice.total_amount)
       
       // Set flight as completed
@@ -325,6 +325,42 @@ const FlightDetailsPage = () => {
       setIsSubmitting(false)
     }
   }
+
+  // Add this query to fetch member's credit balance
+  const { data: memberCredit } = useQuery({
+    queryKey: ['member-credit', booking?.user_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('member_accounts')
+        .select('credit_balance')
+        .eq('user_id', booking?.user_id)
+        .single()
+
+      if (error) throw error
+      return data?.credit_balance || 0
+    },
+    enabled: !!booking?.user_id
+  })
+
+  // Add this query to fetch payments for the invoice
+  const { data: payments = [] } = useQuery({
+    queryKey: ['invoice-payments', createdInvoiceId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('payments')
+        .select('*')
+        .eq('invoice_id', createdInvoiceId)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      return data || []
+    },
+    enabled: !!createdInvoiceId
+  })
+
+  // Calculate totals
+  const totalPaid = payments.reduce((sum, payment) => sum + payment.amount, 0)
+  const amountDue = totalAmount - totalPaid
 
   if (isLoading) {
     return <div className="p-6">Loading flight details...</div>
@@ -678,11 +714,37 @@ const FlightDetailsPage = () => {
 
               {/* Total Amount */}
               <div className="border-t pt-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-lg font-semibold">Total</span>
-                  <span className="text-2xl font-bold text-green-600">
-                    ${totalAmount.toFixed(2)}
-                  </span>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-lg font-semibold">Total</span>
+                    <span className="text-2xl font-bold text-green-600">
+                      ${totalAmount.toFixed(2)}
+                    </span>
+                  </div>
+                  
+                  {/* Payment Summary */}
+                  <div className="text-sm space-y-2 pt-2">
+                    <div className="flex justify-between text-gray-600">
+                      <span>Amount Paid</span>
+                      <span className="font-medium text-green-600">
+                        ${totalPaid.toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between font-medium">
+                      <span>Amount Due</span>
+                      <span className="text-gray-900">
+                        ${amountDue.toFixed(2)}
+                      </span>
+                    </div>
+                    
+                    {/* Show Credit Balance if exists */}
+                    {memberCredit > 0 && (
+                      <div className="flex justify-between text-blue-600 bg-blue-50 p-2 rounded-lg mt-3">
+                        <span>Available Credit</span>
+                        <span className="font-medium">${memberCredit.toFixed(2)}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -735,17 +797,21 @@ const FlightDetailsPage = () => {
       <DebriefModal 
         isOpen={isDebriefOpen}
         onClose={() => setIsDebriefOpen(false)}
+        bookingId={booking.id}
       />
 
       {/* Add the payment modal */}
-      {createdInvoiceId && (
-        <PaymentCollectionModal
+      {createdInvoiceId && booking?.user_id && (
+        <PaymentDialog
           open={isPaymentModalOpen}
           onClose={() => setIsPaymentModalOpen(false)}
           invoiceId={createdInvoiceId}
-          invoiceNumber={createdInvoiceNumber!}
+          userId={booking.user_id}
           totalAmount={invoiceAmount}
-          onDownloadInvoice={() => setIsPaymentModalOpen(true)}
+          onPaymentComplete={() => {
+            // Optionally refresh data after payment
+            queryClient.invalidateQueries({ queryKey: ['invoice', createdInvoiceId] })
+          }}
         />
       )}
 

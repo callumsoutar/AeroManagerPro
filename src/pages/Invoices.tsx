@@ -12,6 +12,7 @@ import {
 import { Input } from "../components/ui/input"
 import { Button } from "../components/ui/button"
 import { Badge } from "../components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { format } from 'date-fns'
 import { FileText, Search } from 'lucide-react'
 
@@ -44,15 +45,38 @@ export default function Invoices() {
   const { data: invoices, isLoading } = useInvoices()
   const navigate = useNavigate()
   const [searchTerm, setSearchTerm] = useState('')
+  const [activeTab, setActiveTab] = useState('all')
 
+  // Filter invoices based on search term and active tab
   const filteredInvoices = invoices?.filter(invoice => {
     const searchLower = searchTerm.toLowerCase()
-    return (
+    const matchesSearch = (
       (invoice.invoice_number?.toLowerCase() || '').includes(searchLower) ||
       (invoice.user?.name?.toLowerCase() || '').includes(searchLower) ||
       (invoice.booking?.aircraft?.registration?.toLowerCase() || '').includes(searchLower)
     )
+
+    // Filter by tab
+    switch (activeTab) {
+      case 'unpaid':
+        return matchesSearch && invoice.status === 'pending'
+      case 'overdue':
+        return matchesSearch && invoice.status === 'overdue'
+      case 'paid':
+        return matchesSearch && invoice.status === 'paid'
+      default:
+        return matchesSearch
+    }
   })
+
+  // Calculate totals for each tab
+  const totals = invoices?.reduce((acc, invoice) => {
+    if (invoice.status === 'pending') acc.unpaid++
+    if (invoice.status === 'overdue') acc.overdue++
+    if (invoice.status === 'paid') acc.paid++
+    acc.all++
+    return acc
+  }, { all: 0, unpaid: 0, overdue: 0, paid: 0 })
 
   return (
     <div className="p-6">
@@ -78,76 +102,109 @@ export default function Invoices() {
         </div>
       </div>
 
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Invoice #</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Member</TableHead>
-              <TableHead>Flight</TableHead>
-              <TableHead>Amount</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Due Date</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center py-8">
-                  Loading invoices...
-                </TableCell>
-              </TableRow>
-            ) : filteredInvoices?.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center py-8">
-                  No invoices found
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredInvoices?.map((invoice) => (
-                <TableRow key={invoice.id}>
-                  <TableCell className="font-medium">
-                    {invoice.invoice_number}
-                  </TableCell>
-                  <TableCell>
-                    {format(new Date(invoice.created_at), 'dd MMM yyyy')}
-                  </TableCell>
-                  <TableCell>{invoice.user?.name || '-'}</TableCell>
-                  <TableCell>
-                    {invoice.booking ? (
-                      <div>
-                        <div>{invoice.booking.aircraft?.registration}</div>
-                        <div className="text-sm text-gray-500">
-                          {invoice.booking.flight_type?.name}
-                        </div>
-                      </div>
-                    ) : '-'}
-                  </TableCell>
-                  <TableCell>{formatCurrency(invoice.total_amount)}</TableCell>
-                  <TableCell>
-                    <Badge className={getStatusColor(invoice.status)}>
-                      {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {format(new Date(invoice.due_date), 'dd MMM yyyy')}
-                  </TableCell>
-                  <TableCell>
-                    <Button 
-                      variant="ghost"
-                      onClick={() => navigate(`/invoices/${invoice.id}`)}
-                    >
-                      View
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="all" className="relative">
+            All
+            <Badge variant="secondary" className="ml-2 bg-gray-100">
+              {totals?.all || 0}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="unpaid" className="relative">
+            Unpaid
+            <Badge variant="secondary" className="ml-2 bg-yellow-100 text-yellow-800">
+              {totals?.unpaid || 0}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="overdue" className="relative">
+            Overdue
+            <Badge variant="secondary" className="ml-2 bg-red-100 text-red-800">
+              {totals?.overdue || 0}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="paid" className="relative">
+            Paid
+            <Badge variant="secondary" className="ml-2 bg-green-100 text-green-800">
+              {totals?.paid || 0}
+            </Badge>
+          </TabsTrigger>
+        </TabsList>
+
+        {['all', 'unpaid', 'overdue', 'paid'].map((tab) => (
+          <TabsContent key={tab} value={tab}>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Invoice #</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Member</TableHead>
+                    <TableHead>Flight</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Due Date</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8">
+                        Loading invoices...
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredInvoices?.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8">
+                        No invoices found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredInvoices?.map((invoice) => (
+                      <TableRow key={invoice.id}>
+                        <TableCell className="font-medium">
+                          {invoice.invoice_number}
+                        </TableCell>
+                        <TableCell>
+                          {format(new Date(invoice.created_at), 'dd MMM yyyy')}
+                        </TableCell>
+                        <TableCell>{invoice.user?.name || '-'}</TableCell>
+                        <TableCell>
+                          {invoice.booking ? (
+                            <div>
+                              <div>{invoice.booking.aircraft?.registration}</div>
+                              <div className="text-sm text-gray-500">
+                                {invoice.booking.flight_type?.name}
+                              </div>
+                            </div>
+                          ) : '-'}
+                        </TableCell>
+                        <TableCell>{formatCurrency(invoice.total_amount)}</TableCell>
+                        <TableCell>
+                          <Badge className={getStatusColor(invoice.status)}>
+                            {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {format(new Date(invoice.due_date), 'dd MMM yyyy')}
+                        </TableCell>
+                        <TableCell>
+                          <Button 
+                            variant="ghost"
+                            onClick={() => navigate(`/invoices/${invoice.id}`)}
+                          >
+                            View
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </TabsContent>
+        ))}
+      </Tabs>
     </div>
   )
 } 

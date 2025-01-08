@@ -4,11 +4,7 @@
     "skipLibCheck": true,
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "allowSyntheticDefaultImports": true,
-    "strict": true,
-    "types": ["node"],
-    "jsx": "react-jsx",
-    "esModuleInterop": true
+    "allowSyntheticDefaultImports": true
   },
-  "include": ["src/pages/api/**/*", "src/emails/**/*"]
+  "include": ["vite.config.ts"]
 } 

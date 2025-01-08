@@ -1,15 +1,23 @@
 {
   "compilerOptions": {
-    "target": "es2017",
-    "module": "commonjs",
+    "target": "ES2020",
+    "module": "CommonJS",
     "moduleResolution": "node",
     "esModuleInterop": true,
     "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
     "outDir": "dist",
     "rootDir": ".",
     "jsx": "react-jsx",
-    "skipLibCheck": true
+    "resolveJsonModule": true,
+    "allowJs": true,
+    "noEmit": false,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
   },
-  "include": ["api/**/*", "src/emails/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["server/**/*", "src/emails/**/*"],
+  "exclude": ["node_modules", "build"]
 } 

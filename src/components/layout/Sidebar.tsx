@@ -8,8 +8,9 @@ import {
   FaFileInvoice,
   FaCog
 } from 'react-icons/fa';
-import { Calendar, Building2 } from 'lucide-react';
+import { Calendar } from 'lucide-react';
 import { LayoutDashboard, Home } from 'lucide-react';
+import { CheckSquare } from 'lucide-react';
 
 interface MenuItem {
   title: string;
@@ -23,13 +24,13 @@ const Sidebar: React.FC = () => {
   const menuItems: MenuItem[] = [
     { title: 'Dashboard', icon: <LayoutDashboard size={18} />, path: '/' },
     { title: 'Home', icon: <Home size={18} />, path: '/home' },
-    { title: 'Reception', icon: <Building2 size={18} />, path: '/reception' },
     { title: 'Aircraft', icon: <FaPlane />, path: '/aircraft' },
     { title: 'Scheduler', icon: <FaCalendarAlt />, path: '/scheduler' },
     { title: 'Staff', icon: <FaUsers />, path: '/staff' },
     { title: 'Members', icon: <FaUserFriends />, path: '/members' },
     { title: 'Bookings', icon: <Calendar size={18} />, path: '/bookings' },
     { title: 'Invoices', icon: <FaFileInvoice />, path: '/invoices' },
+    { title: 'Tasks', icon: <CheckSquare size={18} />, path: '/tasks' },
     { title: 'Settings', icon: <FaCog />, path: '/settings' },
   ];
 

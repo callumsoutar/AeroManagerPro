@@ -4,10 +4,11 @@ import { Button } from "../components/ui/button"
 import { Badge } from "../components/ui/badge"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs"
 import { format } from 'date-fns'
-import { FileEdit, CheckCircle2, FileText, Mail } from 'lucide-react'
+import { FileEdit, CheckCircle2, FileText, Mail, Plane } from 'lucide-react'
 import { useBooking } from '../hooks/useBooking'
 import { getFullName } from '../lib/utils'
 import { EditBookingModal } from "../components/modals/EditBookingModal"
+import ViewDebriefModal from "../components/modals/ViewDebriefModal"
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { Table, TableHeader, TableBody, TableCell, TableHead, TableRow } from "../components/ui/table"
@@ -16,6 +17,7 @@ import { SignOutSheet } from "../components/pdf/SignOutSheet"
 import type { ReactElement } from 'react'
 import { toast } from 'sonner'
 import { sendBookingConfirmation } from '../lib/resend'
+import { cn } from '../lib/utils'
 
 const BookingDetail = () => {
   const { id } = useParams<{ id: string }>()
@@ -44,6 +46,44 @@ const BookingDetail = () => {
     },
     enabled: !!booking?.id
   })
+
+  const { data: soloSignout } = useQuery({
+    queryKey: ['solo-signout', booking?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('solosignout_form')
+        .select(`
+          *,
+          authorised_by_user:users!solosignout_form_authorised_by_fkey (
+            first_name,
+            last_name
+          )
+        `)
+        .eq('booking_id', booking?.id)
+        .single()
+
+      if (error) throw error
+      return data
+    },
+    enabled: !!booking?.id
+  })
+
+  const { data: debrief } = useQuery({
+    queryKey: ['flight-debrief', booking?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('flight_debriefs')
+        .select('id')
+        .eq('booking_id', booking?.id)
+        .single()
+
+      if (error) throw error
+      return data
+    },
+    enabled: !!booking?.id
+  })
+
+  const [isDebriefModalOpen, setIsDebriefModalOpen] = useState(false)
 
   const handleConfirmBooking = async () => {
     if (!booking) return;
@@ -131,7 +171,10 @@ const BookingDetail = () => {
         <div>
           <div className="flex items-center gap-4 mb-1">
             <h1 className="text-3xl font-bold text-gray-900">Booking Details</h1>
-            <Badge className={`text-base px-3 py-1 ${getStatusColor(booking.status)}`}>
+            <Badge className={`text-base px-3 py-1 flex items-center gap-2 ${getStatusColor(booking.status)}`}>
+              {booking.status === 'flying' && (
+                <Plane className="h-4 w-4 text-blue-800" />
+              )}
               {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
             </Badge>
           </div>
@@ -314,6 +357,55 @@ const BookingDetail = () => {
                   )}
                 </div>
               </div>
+
+              {/* Solo Signout Section */}
+              {soloSignout && (
+                <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100 mt-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1 h-6 bg-amber-500 rounded-full"></div>
+                      <h3 className="font-semibold text-gray-900">Solo Flight Authorisation</h3>
+                    </div>
+                    <Badge className={cn(
+                      "px-2 py-1",
+                      {
+                        'bg-green-100 text-green-800': soloSignout.status === 'approved',
+                        'bg-amber-100 text-amber-800': soloSignout.status === 'pending',
+                        'bg-red-100 text-red-800': soloSignout.status === 'declined',
+                        'bg-gray-100 text-gray-800': soloSignout.status === 'cancelled'
+                      }
+                    )}>
+                      {soloSignout.status.charAt(0).toUpperCase() + soloSignout.status.slice(1)}
+                    </Badge>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Submitted</label>
+                      <p className="mt-1 text-gray-900">
+                        {format(new Date(soloSignout.created_at), 'dd MMM yyyy, HH:mm')}
+                      </p>
+                    </div>
+                    {soloSignout.authorised_by_user && (
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Instructor Assigned</label>
+                        <p className="mt-1 text-gray-900">
+                          {soloSignout.authorised_by_user.first_name} {soloSignout.authorised_by_user.last_name}
+                        </p>
+                      </div>
+                    )}
+                    <div className="flex items-end justify-end">
+                      <Button
+                        onClick={() => navigate(`/flight-authorisation/${soloSignout.id}`)}
+                        className="gap-2"
+                      >
+                        <FileText className="h-4 w-4" />
+                        View Details
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Right Column - Flight Times and People */}
@@ -545,7 +637,19 @@ const BookingDetail = () => {
             <TabsContent value="instructor-comments">
               <div className="space-y-6">
                 <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-lg font-semibold mb-4">Instructor Comments</h3>
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold">Instructor Comments</h3>
+                    {debrief && (
+                      <Button
+                        variant="outline"
+                        onClick={() => setIsDebriefModalOpen(true)}
+                        className="gap-2"
+                      >
+                        <FileText className="h-4 w-4" />
+                        View Full Debrief
+                      </Button>
+                    )}
+                  </div>
                   <div className="bg-gray-50 rounded-lg p-4">
                     {booking?.instructor && (
                       <p className="text-gray-900 font-semibold mb-2">
@@ -576,6 +680,14 @@ const BookingDetail = () => {
           booking={booking}
           open={isEditModalOpen}
           onClose={() => setIsEditModalOpen(false)}
+        />
+      )}
+
+      {debrief && (
+        <ViewDebriefModal
+          isOpen={isDebriefModalOpen}
+          onClose={() => setIsDebriefModalOpen(false)}
+          debriefId={debrief.id}
         />
       )}
     </div>

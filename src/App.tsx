@@ -23,7 +23,9 @@ import { Layout } from './pages';
 import { CreateDefect } from './pages';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { NewInvoice } from './pages/NewInvoice';
-import Reception from './pages/Reception';
+import FlightAuthorisation from './pages/FlightAuthorisation';
+import FlightAuthorisationDetails from './pages/FlightAuthorisationDetails';
+import Tasks from './pages/Tasks';
 
 const queryClient = new QueryClient();
 
@@ -123,8 +125,16 @@ const App: React.FC = () => {
           element: <NewInvoice />
         },
         {
-          path: "reception",
-          element: <Reception />
+          path: "flight-authorisation/new/:bookingId?",
+          element: <FlightAuthorisation />
+        },
+        {
+          path: "flight-authorisation/:id",
+          element: <FlightAuthorisationDetails />
+        },
+        {
+          path: "tasks",
+          element: <Tasks />
         }
       ]
     }

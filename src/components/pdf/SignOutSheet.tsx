@@ -100,17 +100,11 @@ const styles = StyleSheet.create({
   },
   recordsCard: {
     width: "45%",
-    backgroundColor: "#f9fafb",
+    backgroundColor: "#ffffff",
     borderRadius: 4,
     padding: 15,
     borderWidth: 1.5,
     borderColor: "#1f2937",
-  },
-  flightRecords: {
-    marginRight: "30%",
-  },
-  fuelRecords: {
-    marginLeft: "30%",
   },
   cardTitle: {
     fontSize: 14,
@@ -155,11 +149,7 @@ const styles = StyleSheet.create({
   },
 });
 
-interface SignOutSheetProps {
-  booking: BookingDetails;
-}
-
-export const SignOutSheet: React.FC<SignOutSheetProps> = ({ booking }) => (
+export const SignOutSheet = ({ booking }: { booking: BookingDetails }) => (
   <Document>
     <Page size="A4" style={styles.page} orientation="landscape">
       {/* Header Section */}
@@ -169,9 +159,7 @@ export const SignOutSheet: React.FC<SignOutSheetProps> = ({ booking }) => (
           <View style={styles.flightInfoItem}>
             <Text style={styles.label}>Student:</Text>
             <Text style={styles.value}>
-              {booking?.user
-                ? `${booking.user.first_name} ${booking.user.last_name}`
-                : "-"}
+              {booking?.user ? `${booking.user.first_name} ${booking.user.last_name}` : "-"}
             </Text>
           </View>
           <View style={styles.flightInfoItem}>
@@ -180,16 +168,12 @@ export const SignOutSheet: React.FC<SignOutSheetProps> = ({ booking }) => (
           </View>
           <View style={styles.flightInfoItem}>
             <Text style={styles.label}>Aircraft:</Text>
-            <Text style={styles.value}>
-              {booking?.aircraft?.registration || "-"}
-            </Text>
+            <Text style={styles.value}>{booking?.aircraft?.registration || "-"}</Text>
           </View>
           <View style={styles.flightInfoItem}>
             <Text style={styles.label}>Date:</Text>
             <Text style={styles.value}>
-              {booking?.start_time
-                ? format(new Date(booking.start_time), "dd MMM yyyy")
-                : "-"}
+              {booking?.start_time ? format(new Date(booking.start_time), "dd MMM yyyy") : "-"}
             </Text>
           </View>
           <View style={styles.flightInfoItem}>
@@ -205,21 +189,8 @@ export const SignOutSheet: React.FC<SignOutSheetProps> = ({ booking }) => (
         <View style={styles.table}>
           <View style={styles.tableHeader}>
             {[
-              "From",
-              "To",
-              "Alt",
-              "TAS",
-              "TT",
-              "Wind Dir",
-              "Speed",
-              "Var",
-              "Mag H",
-              "Dist",
-              "GS",
-              "Time",
-              "Dest Elv",
-              "ETA",
-              "Actual",
+              "From", "To", "Alt", "TAS", "TT", "Wind Dir", "Speed", "Var",
+              "Mag H", "Dist", "GS", "Time", "Dest Elv", "ETA", "Actual",
             ].map((header, index) => (
               <View key={index} style={styles.tableCol}>
                 <Text style={styles.tableHeaderCell}>{header}</Text>
@@ -240,33 +211,31 @@ export const SignOutSheet: React.FC<SignOutSheetProps> = ({ booking }) => (
 
       {/* Bottom Section with Records and Fuel */}
       <View style={styles.bottomContainer}>
-        <View style={[styles.recordsCard, styles.flightRecords]}>
+        {/* Combined Time Records and Flight Duration */}
+        <View style={styles.recordsCard}>
           <Text style={styles.cardTitle}>Flight Records</Text>
           <View style={styles.twoColumnContainer}>
             <View style={styles.column}>
-              {["Tacho Start", "Tacho End", "Hobbs Start", "Hobbs End"].map(
-                (label) => (
-                  <View key={label} style={styles.row}>
-                    <Text style={styles.label}>{label}</Text>
-                    <Text style={styles.lineValue}></Text>
-                  </View>
-                )
-              )}
+              {["Tacho Start", "Tacho End", "Hobbs Start", "Hobbs End"].map((label) => (
+                <View key={label} style={styles.row}>
+                  <Text style={styles.label}>{label}</Text>
+                  <Text style={styles.lineValue}></Text>
+                </View>
+              ))}
             </View>
             <View style={styles.column}>
-              {["Solo Time", "Dual Time", "Total Time", "Night Time"].map(
-                (label) => (
-                  <View key={label} style={styles.row}>
-                    <Text style={styles.label}>{label}</Text>
-                    <Text style={styles.lineValue}></Text>
-                  </View>
-                )
-              )}
+              {["Solo Time", "Dual Time", "Total Time", "Night Time"].map((label) => (
+                <View key={label} style={styles.row}>
+                  <Text style={styles.label}>{label}</Text>
+                  <Text style={styles.lineValue}></Text>
+                </View>
+              ))}
             </View>
           </View>
         </View>
 
-        <View style={[styles.recordsCard, styles.fuelRecords]}>
+        {/* Fuel Records */}
+        <View style={styles.recordsCard}>
           <Text style={styles.cardTitle}>Fuel</Text>
           {["Total Fuel", "Useable Fuel", "Safe Endurance"].map((label) => (
             <View key={label} style={styles.row}>
@@ -280,12 +249,9 @@ export const SignOutSheet: React.FC<SignOutSheetProps> = ({ booking }) => (
       {/* Footer */}
       <View style={styles.footer}>
         <Text style={styles.footerText}>
-          This document is property of the Aeroclub. Please submit a copy to the
-          operations desk after completion.
+          This document is property of the Aeroclub. Please submit a copy to the operations desk after completion.
         </Text>
       </View>
     </Page>
   </Document>
-);
-
-export default SignOutSheet; 
+); 

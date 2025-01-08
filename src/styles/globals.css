@@ -1,4 +1,4 @@
-@keyframes check {
+@keyframes scale-check {
   0% {
     transform: scale(0);
     opacity: 0;
@@ -12,6 +12,6 @@
   }
 }
 
-.animate-check {
-  animation: check 0.5s ease-in-out forwards;
+.animate-scale-check {
+  animation: scale-check 0.4s ease-out forwards;
 } 

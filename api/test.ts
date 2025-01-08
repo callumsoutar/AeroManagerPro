@@ -1,13 +1,9 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { NextApiRequest, NextApiResponse } from 'next';
 
-export default function handler(req: VercelRequest, res: VercelResponse) {
+export default function handler(req: NextApiRequest, res: NextApiResponse) {
   res.status(200).json({ 
     message: 'API is working',
     timestamp: new Date().toISOString(),
-    method: req.method,
-    env: {
-      hasResendKey: !!process.env.REACT_APP_RESEND_API_KEY,
-      nodeEnv: process.env.NODE_ENV
-    }
+    method: req.method
   });
 } 

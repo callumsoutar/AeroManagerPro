@@ -1,54 +1,34 @@
-const API_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://aero-manager-pro.vercel.app/api/email'  // Note: just /api/email, not /src/pages/api/email
-  : 'http://localhost:3001/api/email'
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
 export async function sendBookingConfirmation(bookingData: any) {
   try {
-    // Debug environment and request details
-    console.group('📧 Sending Booking Confirmation Email')
-    console.log('Environment:', process.env.NODE_ENV)
-    console.log('API URL:', API_URL)
-    console.log('Booking data:', JSON.stringify(bookingData, null, 2))
+    console.log('Starting email send process...');
+    console.log('API URL:', API_URL);
+    console.log('Booking data:', bookingData);
     
-    const response = await fetch(API_URL, {
+    const response = await fetch(`${API_URL}/sendEmail`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(bookingData),
-      mode: 'cors'
+      body: JSON.stringify(bookingData)
     });
 
-    // Debug response details
-    console.log('Response status:', response.status)
-    console.log('Response headers:', Object.fromEntries(response.headers.entries()))
-
     if (!response.ok) {
-      const errorText = await response.text()
-      console.error('Response error details:', {
-        status: response.status,
-        statusText: response.statusText,
-        body: errorText
-      })
-      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`)
+      console.error('Response not OK:', response.status, response.statusText);
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    const result = await response.json()
-    console.log('Response success:', result)
-    console.groupEnd()
+    const result = await response.json();
+    console.log('Email send response:', result);
     
     if (!result.success) {
-      throw new Error(result.error || 'Failed to send email')
+      throw new Error(result.error || 'Failed to send email');
     }
 
-    return { success: true, data: result.data }
+    return { success: true, data: result.data };
   } catch (error) {
-    console.error('📧 Email sending error:', {
-      error,
-      message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined
-    })
-    console.groupEnd()
-    return { success: false, error }
+    console.error('Detailed error in sendBookingConfirmation:', error);
+    return { success: false, error };
   }
 } 

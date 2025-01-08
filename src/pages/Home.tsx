@@ -7,7 +7,8 @@ import {
   Users,
   Plane,
   PlusCircle,
-  HelpCircle
+  HelpCircle,
+  FileText
 } from 'lucide-react'
 import { Input } from '../components/ui/input'
 import { useQuery } from '@tanstack/react-query'
@@ -17,6 +18,8 @@ import { Badge } from '../components/ui/badge'
 import { cn } from '../lib/utils'
 import { NewBookingModal } from '../components/modals/NewBookingModal'
 import { CurrentLocationModal } from '../components/modals/CurrentLocationModal'
+import { format } from 'date-fns'
+import { Button } from '../components/ui/button'
 
 // Add interfaces for search results
 interface SearchedMember {
@@ -36,6 +39,23 @@ interface Notice {
   date: string
   priority?: 'low' | 'medium' | 'high'
   category?: 'operations' | 'maintenance' | 'general' | 'safety'
+}
+
+// Update the interface for the Supabase response
+interface SupabaseUser {
+  id: string
+  first_name: string
+  last_name: string
+  name?: string | null
+}
+
+interface FlightAuthorisation {
+  id: string
+  created_at: string
+  status: 'pending' | 'approved' | 'declined' | 'cancelled'
+  booking_id: string
+  user_id: string
+  user: SupabaseUser | null
 }
 
 export function Home() {
@@ -170,6 +190,60 @@ export function Home() {
       category: 'safety'
     }
   ]
+
+  // Add this query near your other queries
+  const { data: flightAuths = [] } = useQuery<FlightAuthorisation[]>({
+    queryKey: ['flight-authorisations'],
+    queryFn: async () => {
+      const { data: rawData, error } = await supabase
+        .from('solosignout_form')
+        .select(`
+          id,
+          created_at,
+          status,
+          booking_id,
+          user_id,
+          user:users!solosignout_form_user_id_fkey!inner (
+            id,
+            first_name,
+            last_name,
+            name
+          )
+        `)
+        .order('created_at', { ascending: false })
+        .limit(5)
+
+      if (error) {
+        console.error('Supabase error:', error)
+        throw error
+      }
+
+      // Safely transform the data with type checking
+      const transformedData: FlightAuthorisation[] = (rawData || []).map(item => {
+        // Ensure we have a valid user object
+        const userArray = Array.isArray(item.user) ? item.user : [item.user]
+        const userObject = userArray[0] || null
+
+        const transformedUser: SupabaseUser | null = userObject ? {
+          id: String(userObject.id),
+          first_name: String(userObject.first_name || ''),
+          last_name: String(userObject.last_name || ''),
+          name: userObject.name ? String(userObject.name) : null
+        } : null
+
+        return {
+          id: String(item.id),
+          created_at: String(item.created_at),
+          status: item.status as FlightAuthorisation['status'],
+          booking_id: String(item.booking_id),
+          user_id: String(item.user_id),
+          user: transformedUser
+        }
+      })
+
+      return transformedData
+    }
+  })
 
   return (
     <div className="p-6 space-y-6">
@@ -337,10 +411,10 @@ export function Home() {
           </div>
         </div>
 
-        {/* Report Defect - 1/3 width */}
-        <div className="w-1/3">
-          <Link to="/defects/new" className="h-full">
-            <div className="group h-full rounded-xl bg-purple-50 hover:bg-purple-100/80 transition-all p-6 cursor-pointer flex flex-col items-center justify-center">
+        {/* Report Defect Section - 1/3 width */}
+        <div className="w-1/3 space-y-4">  {/* Add space-y-4 for gap between elements */}
+          <Link to="/defects/new">
+            <div className="group h-32 rounded-xl bg-purple-50 hover:bg-purple-100/80 transition-all p-6 cursor-pointer flex flex-col items-center justify-center">
               <AlertTriangle className="h-8 w-8 text-purple-600 group-hover:text-purple-700 transition-colors mb-3" />
               <span className="text-lg font-medium text-purple-900">Report Defect</span>
               <p className="text-sm text-purple-600 mt-2 text-center">
@@ -348,6 +422,66 @@ export function Home() {
               </p>
             </div>
           </Link>
+
+          {/* Flight Authorisations Table */}
+          <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+            <div className="border-b border-gray-200 bg-gray-50 p-4 rounded-t-xl">
+              <div className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-gray-500" />
+                <h2 className="font-semibold text-gray-900">Flight Authorisations</h2>
+              </div>
+            </div>
+            
+            <div className="divide-y divide-gray-100">
+              {flightAuths.length === 0 ? (
+                <div className="p-4 text-center text-gray-500">
+                  No authorisations found
+                </div>
+              ) : (
+                flightAuths.map((auth) => (
+                  <div key={auth.id} className="p-3 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <p className="text-sm text-gray-600">
+                          {format(new Date(auth.created_at), 'dd MMM yyyy, HH:mm')}
+                        </p>
+                        <p className="text-sm font-medium">
+                          {auth.user ? (
+                            auth.user.name || 
+                            `${auth.user.first_name || ''} ${auth.user.last_name || ''}`.trim() || 
+                            'No name provided'
+                          ) : (
+                            'Unknown User'
+                          )}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Badge className={cn(
+                          "capitalize",
+                          {
+                            'bg-green-100 text-green-800': auth.status === 'approved',
+                            'bg-amber-100 text-amber-800': auth.status === 'pending',
+                            'bg-red-100 text-red-800': auth.status === 'declined',
+                            'bg-gray-100 text-gray-800': auth.status === 'cancelled'
+                          }
+                        )}>
+                          {auth.status}
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => navigate(`/flight-authorisation/${auth.id}`)}
+                          className="h-8 px-2"
+                        >
+                          View
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       </div>
 

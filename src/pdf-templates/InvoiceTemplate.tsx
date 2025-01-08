@@ -94,37 +94,50 @@ const styles = StyleSheet.create({
 
 interface InvoiceTemplateProps {
   invoice: {
-    id: string
-    invoice_number: string
-    total_amount: number
-    status: string
-    due_date: string
-    created_at: string
+    id: string;
+    invoice_number: string;
+    total_amount: number;
+    status: 'pending' | 'paid' | 'overdue';
+    due_date: string;
+    created_at: string;
     flight_charges: Array<{
-      description: string
-      rate: number
-      units: number
-      amount: number
-    }> | null
+      description: string;
+      rate: number;
+      units: number;
+      amount: number;
+    }> | null;
     additional_charges: Array<{
-      description: string
-      amount: number
-      quantity: number
-      total: number
-    }> | null
+      id: string;
+      description: string;
+      amount: number;
+      quantity: number;
+      total: number;
+    }> | null;
     user?: {
-      name: string
-      email: string
-      address: string
-      city: string
-    }
+      id: string;
+      name: string;
+      email: string;
+      address: string;
+      city: string;
+    };
     booking?: {
+      id: string;
+      user?: {
+        id: string;
+        name: string;
+        email: string;
+        address: string;
+        city: string;
+      };
       aircraft?: {
-        registration: string
-        type: string
-      }
-    }
-  }
+        registration: string;
+        type: string;
+      };
+      flight_type?: {
+        name: string;
+      };
+    };
+  };
 }
 
 const InvoiceTemplate: React.FC<InvoiceTemplateProps> = ({ invoice }) => {
