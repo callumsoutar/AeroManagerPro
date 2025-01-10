@@ -16,7 +16,7 @@ export interface FlightTrackData {
 
 // Mock responses for our aircraft
 export const mockFlightTrackResponses: Record<string, FlightTrackData> = {
-  'ZK-KAZ': {
+  'ZK-KID': {
     fr24_id: "321a0cc3",
     lat: -40.78265, // Christchurch area
     lon: 175.0928,
